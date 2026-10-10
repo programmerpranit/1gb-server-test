@@ -2,6 +2,10 @@
 
 Guidance for Claude (and humans) working in this repository.
 
+**Start every session by reading [context.md](context.md)** (infrastructure state, results so far, open decisions,
+working agreements). **Update context.md at the end of every session** (and after any change in infrastructure,
+best configuration or open decisions), so the next session can resume without the chat history.
+
 ## Goal
 
 Measure how far a **$6/month DigitalOcean droplet** can go when serving the same small social-feed API written in
@@ -51,6 +55,7 @@ These keep results comparable across stacks. Do not break them without recording
 
 ```
 CLAUDE.md                     this file: goals, rules, contract, plan
+context.md                    session handoff: infra state, results so far, open decisions (read first)
 README.md                     results comparison tables (auto-updated by run_test.sh)
 Twitterdatainsheets.xlsx      seed dataset (source of truth)
 .env.example                  copy to .env (git-ignored): server IP, DB password, load-gen label
