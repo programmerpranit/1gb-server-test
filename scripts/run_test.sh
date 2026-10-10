@@ -59,7 +59,7 @@ if [[ -n "$LOADGEN_HOST" ]]; then
   K6_VERSION_STR="$(loadgen 'k6 version | head -1')"
   loadgen "mkdir -p /opt/loadgen/runs"
   # Live dashboard: k6 listens on the load generator's localhost only; reach it through an SSH tunnel.
-  if lsof -ti "tcp:$DASHBOARD_PORT" >/dev/null 2>&1; then
+  if lsof -ti "tcp:$DASHBOARD_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
     log "Live dashboard: reusing the tunnel already on http://localhost:$DASHBOARD_PORT (scripts/dashboard.sh)"
   else
     ssh "${SSH_OPTS[@]}" -o ExitOnForwardFailure=yes -N -L "$DASHBOARD_PORT:127.0.0.1:5665" "$LOADGEN_TARGET" 2>/dev/null &
