@@ -57,10 +57,15 @@ db/schema.sql                 shared Postgres schema (all stacks)
 loadtest/stress.js            k6 stress test (all stacks)
 apps/<stack>/                 one implementation per stack, e.g. apps/node-express/   (not created yet)
   build.sh                    optional; runs on the server as user `bench` (npm ci, go build, cargo build ...)
+  bench.json                  required; stack metadata for results.csv: language, runtime, framework, db, db_driver,
+                              db_pool, workers, change (update it in the same commit as each config change)
   start.sh                    required; must `exec` the server process; reads $PORT and $DATABASE_URL
 results/CONFIG_TEMPLATE.md    template for results/<tag>/config.md
+results/results.csv           every run, one row per (tag, VUs), all data points (auto-updated)
 results/<tag>/                one directory per configuration
   config.md                   what changed + full config + observations
+  bench.json                  stack metadata as deployed
+  capacity.json               capacity search result (highest passing VUs, first fail, levels tested)
   vus-<n>/                    one directory per VU level
     run.json                  tag, stack, VUs, timing, load-gen label, git SHA, k6 version
     server_env.txt            kernel, OS, node/postgres versions, swap, shared_buffers ...
@@ -77,8 +82,8 @@ scripts/
   provision.sh                one-time droplet setup (runs server/setup.sh)
   seed_db.sh                  upload CSVs + schema, build bench_seed template (runs server/seed.sh)
   deploy.sh <stack>           rsync apps/<stack>, build, install + restart bench-app
-  run_test.sh <tag> [vus..]   full test for one configuration across a VU ladder
-  summarize.py <run_dir>      k6 + server metrics -> summary + README row
+  run_test.sh <tag> [vus..]   capacity search for one configuration (ladder + bisection)
+  summarize.py <run_dir>      k6 + server metrics -> pass/fail, summary, README row, results.csv row
   release.sh <tag>            commit results, git tag, GitHub release with build + results
   server/                     scripts executed ON the droplet via `ssh bash -s`
     setup.sh  seed.sh  reset_db.sh  install_app.sh  prepare_run.sh  collect_metrics.sh
@@ -166,9 +171,14 @@ Tool: [k6](https://k6.io) (`brew install k6` on macOS; on Ubuntu follow
   Likes/comments mostly target posts the VU just saw in a feed (realistic hot rows).
 - **Phases:** each request is tagged `phase=ramp|steady`; headline throughput and latency use the steady phase.
 - **Error:** any non-2xx response or a request taking longer than 10 s (k6 timeout).
-- **VU ladder:** each configuration runs at `100 250 500 1000 2000` VUs (override per run), with a full reset between
-  levels. The ladder stops when a level's error rate exceeds 5 %.
-- **Capacity:** the highest ladder level with error rate < 1 % and steady p95 < 500 ms. This is the headline number.
+- **Pass criteria (per run):** steady-phase **p50 < 500 ms, p95 < 800 ms, p99 < 1000 ms**, and whole-run
+  **error rate < 1 %**. All four must hold. Configurable via `PASS_P50_MS`, `PASS_P95_MS`, `PASS_P99_MS`,
+  `PASS_ERROR_PCT` in `.env` (changing them is a protocol change — note it).
+- **Capacity search:** climb the ladder `100 250 500 1000 2000` (`VU_LADDER`, override per run) until a level fails,
+  then binary-search between the last passing level (or 0) and the first failing one, rounded to `SEARCH_STEP`
+  (25) VUs, until the gap is ≤ 25. Example: 100 pass, 250 fail → 175 → 125 or 225 → ... Full reset between levels.
+- **Capacity:** the highest passing VU level, with its steady req/s. This is the headline number
+  (`results/<tag>/capacity.json`, README "Capacity per configuration").
 - At ~2 s per iteration, N VUs produce roughly N/2 req/s offered load (a bit more with feed scrolling).
 
 ## Metrics recorded per run
@@ -180,8 +190,12 @@ From the server (`server_metrics.csv`, 1 s samples by `collect_metrics.sh`): CPU
 **steal** %, app CPU % and Postgres CPU % (cgroup), memory used / available, swap used, app PSS MB, Postgres PSS MB,
 established connections on the app port, load average.
 
-`summarize.py` reduces both into `summary.json` / `summary.md` and upserts a row into README's "All runs" table.
-The "Headline" table in README is filled in by hand (capacity per tag).
+`summarize.py` reduces both into `summary.json` / `summary.md`, judges pass/fail, and upserts the run into README's
+"All runs" table and into **`results/results.csv`** — one row per (tag, VUs) with ~75 columns: run identity, verdict
+and criteria, stack (language, runtime + version, framework, DB + version, driver, pool, workers, change — from
+`apps/<stack>/bench.json`), server (plan, vCPU, RAM, OS, kernel, swap, Postgres settings), load generator,
+throughput, errors, steady and whole-run latency percentiles, per-endpoint p95, and server resource peaks/averages.
+After the search, `summarize.py --capacity` writes `capacity.json` and upserts README's "Capacity" table.
 
 ## Tags and releases
 
@@ -243,6 +257,8 @@ before the next unrelated experiment unless they become the new baseline for tha
 - [x] Baseline run 2026-10-10. Capacity < 100 VUs: CPU-bound at 100 VUs (44 req/s, p95 824 ms, 0 % errors);
       250 VUs → 24 % errors from Postgres connection exhaustion. Postgres spends ~60 % CPU on per-request
       connection setup. Memory peaked at 530 MB used. Details: `results/node-express-v01-baseline/config.md`.
+- [ ] Re-run as `node-express-v01-baseline-r2` with the new pass criteria and capacity search (v01 used the old
+      criteria and no search; its release is kept as-is).
 - [ ] Next: `node-express-v02-pool` (introduce `pg.Pool`, defaults).
 - Expectation to verify: 1 vCPU saturates before 1 GB RAM does; watch steal %, the pool queue, and OOM kills.
 

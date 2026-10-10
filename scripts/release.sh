@@ -21,8 +21,8 @@ fi
 
 STACK="$(python3 -I -c "import json,glob,sys; print(json.load(open(sorted(glob.glob(sys.argv[1]+'/vus-*/run.json'))[0]))['stack'])" "$TAG_DIR")"
 
-git add "$TAG_DIR" README.md
-git commit -m "results: $TAG" || true
+git add "$TAG_DIR" README.md results/results.csv
+git commit -m "results: $TAG" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" || true
 git tag -a "$TAG" -m "Benchmark $TAG ($STACK)"
 git push origin HEAD
 git push origin "$TAG"
@@ -36,8 +36,10 @@ tar -czf "$WORK/results-$TAG.tgz" "$TAG_DIR"
 
 {
   cat "$TAG_DIR/config.md"
+  echo; echo "## Capacity"; echo
+  [[ -f "$TAG_DIR/capacity.json" ]] && echo '```json' && cat "$TAG_DIR/capacity.json" && echo '```'
   echo; echo "## Results"; echo
-  for f in "$TAG_DIR"/vus-*/summary.md; do sed '1d' "$f"; echo; done
+  for f in $(ls "$TAG_DIR"/vus-*/summary.md | sort -t- -k2 -n); do sed '1d' "$f"; echo; done
 } > "$WORK/notes.md"
 
 gh release create "$TAG" --title "$TAG" --notes-file "$WORK/notes.md" "$WORK"/*.tgz
