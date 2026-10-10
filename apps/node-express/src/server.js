@@ -1,7 +1,7 @@
 'use strict';
 
 // Implementation of the protocol v2 API (see CLAUDE.md "API contract").
-// Deliberately plain: Express defaults, one process, a pg.Pool with default settings (max 10) — every request
+// Deliberately plain: Express defaults, one process, a pg.Pool with max 20 connections (other settings default) — every request
 // borrows one connection for all its queries and returns it when done. One query per step.
 // Every response carries a Server-Timing header: conn (pool wait), db (queries), app (the rest), total.
 
@@ -12,7 +12,7 @@ const { Pool, types } = require('pg');
 types.setTypeParser(20, (v) => parseInt(v, 10));
 
 const PORT = Number(process.env.PORT || 3000);
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 20 });
 pool.on('error', (err) => console.error('pg pool error', err));
 
 const DEFAULT_LIMIT = 20;
