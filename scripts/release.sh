@@ -15,8 +15,8 @@ git remote get-url origin >/dev/null 2>&1 || { echo "no 'origin' remote — crea
 if ! git diff --quiet HEAD -- apps db loadtest scripts || [[ -n "$(git ls-files --others --exclude-standard apps db loadtest scripts)" ]]; then
   echo "Uncommitted changes in apps/ db/ loadtest/ scripts/ — commit the code you tested first"; exit 1
 fi
-if grep -q '<!-- ONE variable per tag' "$TAG_DIR/config.md"; then
-  echo "Fill in $TAG_DIR/config.md before releasing"; exit 1
+if grep -qE '<!-- (ONE variable per tag|Analysis written after the test)' "$TAG_DIR/config.md"; then
+  echo "Fill in $TAG_DIR/config.md (Summary, What changed, ...) before releasing"; exit 1
 fi
 
 STACK="$(python3 -I -c "import json,glob,sys; print(json.load(open(sorted(glob.glob(sys.argv[1]+'/vus-*/run.json'))[0]))['stack'])" "$TAG_DIR")"

@@ -1,0 +1,10 @@
+{
+  "language": "JavaScript",
+  "runtime": "node",
+  "framework": "Express 5.3.0",
+  "db": "postgres",
+  "db_driver": "pg 8.23.1",
+  "db_pool": "none (new connection per request)",
+  "workers": 1,
+  "change": "baseline: no pool, new connection per request"
+}

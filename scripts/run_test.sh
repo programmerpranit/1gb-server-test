@@ -94,7 +94,7 @@ EOF
          --readme "$REPO_ROOT/README.md" --csv "$REPO_ROOT/results/results.csv")"
   echo "$OUT"
   LAST_PASS="$(echo "$OUT" | awk -F= '/^pass=/{print $2}')"
-  log "[$TAG] $VUS VUs — $([[ "$LAST_PASS" == 1 ]] && echo PASS || echo "FAIL ($(echo "$OUT" | awk -F= '/^fail_reasons=/{print $2}'))")"
+  log "[$TAG] $VUS VUs — $([[ "$LAST_PASS" == 1 ]] && echo PASS || echo "FAIL ($(echo "$OUT" | sed -n 's/^fail_reasons=//p'))")"
 }
 
 # 1. climb

@@ -257,8 +257,8 @@ before the next unrelated experiment unless they become the new baseline for tha
 - [x] Baseline run 2026-10-10. Capacity < 100 VUs: CPU-bound at 100 VUs (44 req/s, p95 824 ms, 0 % errors);
       250 VUs → 24 % errors from Postgres connection exhaustion. Postgres spends ~60 % CPU on per-request
       connection setup. Memory peaked at 530 MB used. Details: `results/node-express-v01-baseline/config.md`.
-- [ ] Re-run as `node-express-v01-baseline-r2` with the new pass criteria and capacity search (v01 used the old
-      criteria and no search; its release is kept as-is).
+- [x] Re-run as `node-express-v01-baseline-r2` (new criteria + search): **capacity 75 VUs / 39.1 req/s**,
+      100 VUs fails on p95/p99 at the ~44 req/s CPU ceiling. ~20 ms CPU/request, ~60 % in Postgres.
 - [ ] Next: `node-express-v02-pool` (introduce `pg.Pool`, defaults).
 - Expectation to verify: 1 vCPU saturates before 1 GB RAM does; watch steal %, the pool queue, and OOM kills.
 
@@ -286,6 +286,12 @@ PHP (FrankenPHP/Laravel Octane). Cross-stack experiments: Postgres over Unix soc
 HTTP/1.1 keep-alive behaviour.
 
 ## Notes for Claude
+
+- **After every test, write the analysis summary into the report** before releasing:
+  `results/<tag>/config.md` → `## Summary` (verdict: capacity + req/s; the bottleneck and the evidence — CPU split
+  app/Postgres, memory, connections, error messages from `app_log_tail.txt`, steal; comparison with the parent tag;
+  recommended next experiment), plus the Results/Observations sections, and a 2–3 line entry in README "Findings".
+  `release.sh` refuses to release while the template placeholders are still there.
 
 - Keep this file current: tick plan items, add findings that change the plan, record protocol changes.
 - New stack = new `apps/<stack>/` with `start.sh` (+ optional `build.sh`); add any runtime install to

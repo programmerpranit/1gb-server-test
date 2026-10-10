@@ -18,7 +18,22 @@ VU level; this table is updated automatically. Every run's full data point set i
 | Tag | Stack | What changed | Capacity (VUs) | First fail (VUs) | Steady req/s | Steady req/min | p50 ms | p95 ms | p99 ms | Error % | Peak used MB | Release |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | node-express-v01-baseline | node-express | baseline: no pool, new connection per request (old criteria, no search) | < 100 | 100 | - | - | - | - | - | - | - | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v01-baseline) |
+| node-express-v01-baseline-r2 | node-express | baseline: no pool, new connection per request | 75 | 100 | 39.1 | 2345 | 80.7 | 202.1 | 261.2 | 0 | 409 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v01-baseline-r2) |
 <!-- CAPACITY:END -->
+
+## Findings
+
+One analysis summary per tag; the full report (summary, configuration, results, observations) is
+`results/<tag>/config.md` and is also the GitHub release notes.
+
+- **node-express-v01-baseline** — No connection pool (new Postgres connection per request). CPU-bound from 100 VUs
+  (~97 % of the single vCPU); Postgres spends ~60 % of CPU on per-request connection setup (backend fork + SCRAM
+  auth). 250 VUs → 24 % errors from connection exhaustion (`max_connections` 100). Memory is not the limit (530 MB
+  peak). [Report](results/node-express-v01-baseline/config.md)
+- **node-express-v01-baseline-r2** — Same build, new criteria + capacity search. **Capacity 75 VUs / 39.1 req/s**
+  (p95 202 ms); 100 VUs fails on latency (p95 890 ms) at a ~44 req/s CPU ceiling. ~20 ms CPU per request, ~60 % of
+  it in Postgres (connection setup). Memory ≤ 487 MB. Repeatable vs. v01 within 2 % throughput.
+  [Report](results/node-express-v01-baseline-r2/config.md)
 
 ## All runs
 
@@ -38,6 +53,9 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | node-express-v01-baseline | node-express | 100 | FAIL | 44.4 | 2666 | 4207 | 331.8 | 703.6 | 824.4 | 1001.7 | 1138 | 0 | 107 | 63 | 425 | 0 | 96.7 | 0.1 | macbook-home-wifi |
 | node-express-v01-baseline | node-express | 250 | FAIL | 57.4 | 3441 | 5869 | 2694.0 | 3500.0 | 3764.9 | 4298.2 | 4780 | 24.08 | 114 | 124 | 530 | 0 | 100.0 | 0.3 | macbook-home-wifi |
+| node-express-v01-baseline-r2 | node-express | 100 | FAIL | 43.7 | 2622 | 4100 | 460.6 | 792.8 | 889.5 | 1025.3 | 1132 | 0 | 106 | 66 | 487 | 0 | 97.9 | 0.3 | macbook-home-wifi |
+| node-express-v01-baseline-r2 | node-express | 50 | PASS | 26.4 | 1584 | 2390 | 49.9 | 95.4 | 117.6 | 171.3 | 212 | 0 | 103 | 42 | 399 | 0 | 52.0 | 0.1 | macbook-home-wifi |
+| node-express-v01-baseline-r2 | node-express | 75 | PASS | 39.1 | 2345 | 3536 | 80.7 | 164.5 | 202.1 | 261.2 | 323 | 0 | 106 | 41 | 409 | 0 | 78.2 | 0.1 | macbook-home-wifi |
 <!-- RESULTS:END -->
 
 ## Reproducing
