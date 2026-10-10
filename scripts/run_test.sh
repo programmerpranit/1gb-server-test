@@ -91,6 +91,11 @@ run_k6() {
   loadgen_script "$REPO_ROOT/scripts/server/loadgen_metrics.sh" "$((RAMP_S + HOLD_S + 15))" > "$RUN_DIR/loadgen_metrics.csv" &
   local LG_PID=$!
   local QUOTED; printf -v QUOTED '%q ' "${K6_ARGS[@]}"
+  # k6 does not exit while a browser keeps the live dashboard open. Once the test is over (report exported), a
+  # watcher closes the dashboard connections on the load generator so k6 can write its summary and exit.
+  loadgen "nohup timeout $((RAMP_S + HOLD_S + 300)) bash -c 'while [ ! -s \"$RDIR/k6_report.html\" ]; do sleep 1; done; \
+    while pgrep -x k6 >/dev/null; do sleep 2; ss -K state established \"( sport = :5665 )\" >/dev/null 2>&1; done' \
+    </dev/null >/dev/null 2>&1 &"
   loadgen "cd '$RDIR' && ulimit -n 1048576 && K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_HOST=127.0.0.1 \
     K6_WEB_DASHBOARD_PORT=5665 K6_WEB_DASHBOARD_PERIOD=2s K6_WEB_DASHBOARD_EXPORT='$RDIR/k6_report.html' \
     k6 run --quiet $QUOTED -e OUT_DIR='$RDIR' stress.js" > "$RUN_DIR/k6_stdout.txt" 2>&1 || true
