@@ -87,6 +87,8 @@ scripts/
   summarize.py <run_dir>      k6 + server metrics -> pass/fail, summary, README row, results.csv row
   release.sh <tag>            commit results, git tag, GitHub release with build + results
   release.sh --update <tag>   after adding VU levels to a released tag: push results, refresh release assets/notes
+  report_html.py <tag_dir>    results/<tag>/report.html: summary, levels table, charts (k6 2-s snapshots decoded
+                              from k6_report.html, server + load-gen samples); run by release.sh, attached to the release
   server/                     scripts executed ON the droplet via `ssh bash -s`
     setup.sh  seed.sh  reset_db.sh  install_app.sh  prepare_run.sh  collect_metrics.sh
 data/                         generated CSVs (git-ignored); data/meta.json is tracked (load test needs the counts)

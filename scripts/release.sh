@@ -31,6 +31,9 @@ fi
 STACK="$(python3 -I -c "import json,glob,sys; print(json.load(open(sorted(glob.glob(sys.argv[1]+'/vus-*/run.json'))[0]))['stack'])" "$TAG_DIR")"
 LEVELS="$(python3 -I -c "import glob,re,sys; print(' '.join(sorted((re.search(r'vus-(\d+)', p).group(1) for p in glob.glob(sys.argv[1]+'/vus-*')), key=int)))" "$TAG_DIR")"
 
+# Visual report with charts (k6 time series + server samples): results/<tag>/report.html
+python3 -I scripts/report_html.py "$TAG_DIR" >/dev/null
+
 git add "$TAG_DIR" README.md results/results.csv
 [[ -f CLAUDE.md ]] && git add CLAUDE.md
 MSG="results: $TAG"; [[ $UPDATE == 1 ]] && MSG="results: $TAG (levels $LEVELS)"
@@ -43,8 +46,11 @@ git push origin HEAD
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 tar -czf "$WORK/results-$TAG.tgz" "$TAG_DIR"
+cp "$TAG_DIR/report.html" "$WORK/report-$TAG.html"
 
 {
+  echo "> **Charts:** download \`report-$TAG.html\` below and open it in a browser."
+  echo
   cat "$TAG_DIR/config.md"
   echo; echo "## Capacity"; echo
   [[ -f "$TAG_DIR/capacity.json" ]] && echo '```json' && cat "$TAG_DIR/capacity.json" && echo '```'
@@ -57,11 +63,11 @@ tar -czf "$WORK/results-$TAG.tgz" "$TAG_DIR"
 } > "$WORK/notes.md"
 
 if [[ $UPDATE == 1 ]]; then
-  gh release upload "$TAG" "$WORK/results-$TAG.tgz" --clobber
+  gh release upload "$TAG" "$WORK/results-$TAG.tgz" "$WORK/report-$TAG.html" --clobber
   gh release edit "$TAG" --notes-file "$WORK/notes.md" >/dev/null
   log "Updated release $TAG"
 else
   [[ -d "apps/$STACK" ]] && git archive --format=tar.gz -o "$WORK/build-$TAG.tgz" "$TAG" "apps/$STACK" db loadtest scripts
-  gh release create "$TAG" --title "$TAG" --notes-file "$WORK/notes.md" "$WORK"/*.tgz
+  gh release create "$TAG" --title "$TAG" --notes-file "$WORK/notes.md" "$WORK"/*.tgz "$WORK/report-$TAG.html"
   log "Released $TAG"
 fi
