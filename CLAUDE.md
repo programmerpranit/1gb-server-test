@@ -31,11 +31,12 @@ These keep results comparable across stacks. Do not break them without recording
 
 1. **One variable per tag.** Each new tag changes exactly one thing vs. its parent tag and says what in `config.md`.
 2. **Same protocol for every stack.** `loadtest/stress.js`, `db/schema.sql` and the API contract below are frozen
-   ("protocol v1"). If one must change, bump the protocol version in this file and README, and re-run the baselines.
-3. **Never run the load generator on the droplet under test.** Preferred: a second droplet in the same region (e.g.
-   2 vCPU / 4 GB, billed hourly, destroyed after a session) targeting the private VPC IP (`TARGET_HOST`). Acceptable:
-   the Mac, but then latency includes the home network. `LOADGEN_LABEL` is recorded in every row; only compare rows
-   with the same load source.
+   (currently "protocol v2"). If one must change, bump the protocol version in this file and README, and re-run the baselines.
+3. **All official runs come from the load-generator droplet** (`LOADGEN_HOST`): a separate DigitalOcean droplet in
+   the **same region (blr1) and VPC** as the target, sending traffic to the target's **private IP** (`TARGET_HOST`,
+   10.122.0.2). Never run k6 on the droplet under test. The MacBook is no longer an official load source: home Wi-Fi
+   added ~40 ms RTT and stalls. `LOADGEN_LABEL` (e.g. `do-blr1-loadgen-2vcpu`) is recorded in every row; only compare
+   rows with the same label. The load generator is stateless and destroyed after each session (see Phase 0).
 4. **Identical start state.** Before every run: fresh DB cloned from the `bench_seed` template, Postgres restarted, OS
    page cache dropped, app restarted (`scripts/server/prepare_run.sh`).
 5. **Configuration is data.** Swap on/off, Postgres settings, runtime flags (`NODE_ENV`, heap size), pool sizes,
@@ -126,7 +127,7 @@ Key indexes: partial `posts(id DESC) WHERE is_public` (global feed), `posts(user
 database `bench` with `CREATE DATABASE bench TEMPLATE bench_seed` (seconds, deterministic). The app always connects
 to `bench` with role `bench` over `127.0.0.1:5432`.
 
-## API contract (protocol v1)
+## API contract (protocol v2)
 
 Every implementation must match this exactly so `loadtest/stress.js` works unchanged.
 
@@ -160,7 +161,19 @@ Shapes:
 
 Writes that touch two tables (like + counter, comment + counter) run in one transaction.
 
-## Load test protocol (protocol v1)
+**Server timing (required, protocol v2).** Every response, including errors, carries a `Server-Timing` header
+measured inside the app:
+```
+Server-Timing: conn;dur=1.2, db;dur=3.4, app;dur=0.8, total;dur=5.4
+```
+- `total`: from the moment the app starts handling the request (first middleware) until the response is sent.
+- `conn`: time to obtain a DB connection — connect + auth without a pool, waiting for a free connection with a pool.
+- `db`: summed time spent executing queries (including BEGIN/COMMIT).
+- `app`: `total - conn - db` (routing, validation, JSON serialisation, framework overhead).
+All values are milliseconds with 0.1 ms precision. `/health` reports them too. k6 records them per endpoint and
+phase, so client-observed latency can be split into server time vs. network/queueing outside the handler.
+
+## Load test protocol (protocol v2)
 
 Tool: [k6](https://k6.io) (`brew install k6` on macOS; on Ubuntu follow
 <https://grafana.com/docs/k6/latest/set-up/install-k6/>), script `loadtest/stress.js`, driven by `scripts/run_test.sh`.
@@ -190,6 +203,10 @@ Tool: [k6](https://k6.io) (`brew install k6` on macOS; on Ubuntu follow
 
 From k6 (`k6_summary.json`): total requests, avg req/s, steady req/s and req/min, max VUs, error rate (overall and
 steady), latency avg / p50 / p90 / p95 / p99 / max (overall, steady, per endpoint).
+
+From the app's `Server-Timing` header (k6 Trends `server_total`, `server_conn`, `server_db`, `server_app`, per
+endpoint and phase): p50 / p95 / p99 of time inside the app and how it splits. `k6 latency − server_total` is time
+outside the handler: network, kernel/accept queues, event-loop wait, load generator.
 
 From the server (`server_metrics.csv`, 1 s samples by `collect_metrics.sh`): CPU busy / user / sys / iowait /
 **steal** %, app CPU % and Postgres CPU % (cgroup), memory used / available, swap used, app PSS MB, Postgres PSS MB,
@@ -228,51 +245,54 @@ before the next unrelated experiment unless they become the new baseline for tha
 
 ## Plan
 
-### Phase 0 — Infrastructure (done 2026-10-10)
+### Phase 0 — Infrastructure
 - [x] Dataset analysis and converter (`scripts/xlsx_to_csv.py`)
 - [x] Shared schema, API contract, k6 test, metrics sampler, run/summarize/release scripts
-- [x] Droplet created (Ubuntu 24.04.5, kernel 6.8.0-142, 961 MB usable RAM), `.env` filled. Scripts SSH as root
-      with key auth using `SSH_KEY` from `.env` (`~/.ssh/do`).
-- [x] Load generator decided: the MacBook (`LOADGEN_LABEL=macbook-home-wifi`). Latency includes the home network, so
-      keep the same network for every run, avoid other heavy traffic during tests, and treat absolute latency as
-      "client-observed". A same-region droplet can be added later as a separate load source label.
+- [x] Target droplet created in **blr1** (Ubuntu 24.04.5, kernel 6.8.0-142, 961 MB usable RAM, private IP
+      10.122.0.2), `.env` filled. Scripts SSH as root with key auth using `SSH_KEY` from `.env` (`~/.ssh/do`).
+      The target is kept running between sessions (it holds the `bench_seed` template and installed stacks).
 - [x] GitHub repo created: `programmerpranit/1gb-server-test` (private)
 - [x] Provisioned (Node v24.21.0, PostgreSQL 16.15) and seeded (`bench_seed` = 62 MB).
       Idle after `prepare_run.sh` with Postgres + node-express running: ~350 MB used, ~605 MB available
       (DigitalOcean agent + OS take ~300 MB before anything is installed). Idle PSS: node 62 MB, Postgres ~25 MB.
-- [x] Tooling smoke-tested: all endpoints via curl against a local Postgres; k6 v2.3.0 run (30 VUs, 10 s + 10 s,
-      0 errors); `prepare_run.sh` and `collect_metrics.sh` on the droplet. Mac → droplet RTT ≈ 40 ms.
+- [x] Tooling smoke-tested (endpoints via curl, k6, `prepare_run.sh`, `collect_metrics.sh`).
 - Notes: macOS ships `openrsync` (no `--chmod`); the sampler is one long-lived python3 process because forking
   `awk`/`ss` every second cost ~10 % of the vCPU (now ~1–2 %).
+- [ ] **Load-generator droplet** (created by the user each session; IP goes into `LOADGEN_HOST`): blr1, same VPC,
+      Ubuntu 24.04, same SSH key, 2 vCPU / 4 GB to start (dedicated CPU preferred; upgrade if k6 CPU > ~70 %).
+      Stateless — destroyed after each session.
+  - [ ] `scripts/provision_loadgen.sh`: install k6, raise `ulimit -n`, network sysctls; idempotent, ~1–2 min.
+  - [ ] `run_test.sh` orchestrates from the Mac: copies `loadtest/stress.js` to the load generator, runs k6 there
+        against `TARGET_HOST` (10.122.0.2), copies `k6_summary.json` / report / stdout back. Records load-generator
+        CPU/memory during the run so a saturated k6 is visible.
+  - [ ] Target firewall: allow port 3000 from the VPC (10.122.0.0/16 — check the VPC range) so new load-generator
+        IPs need no change.
+  - [ ] `.env`: `LOADGEN_HOST`, `TARGET_HOST=10.122.0.2`, `LOADGEN_LABEL=do-blr1-loadgen-<size>`.
 
-### Phase 1 — Node.js + Express + Postgres baseline (`node-express-v01-baseline`)
-- `apps/node-express/`: Express 5, `pg` (node-postgres), plain SQL, no ORM. **No connection pool** (user decision):
-  every request opens a new `pg.Client`, runs its queries (incl. its transaction) on it, and closes it before
-  responding. Expect failures once concurrent requests exceed Postgres `max_connections` (100): error `53300`
-  `sorry, too many clients already`, plus per-request backend fork + SCRAM auth cost (~20 ms extra per request
-  observed at idle).
-- Single process (no cluster/pm2), no reverse proxy, no request logging, `NODE_ENV=production`, default heap.
-- `build.sh`: `npm ci --omit=dev`. `start.sh`: `exec node src/server.js`.
+### Restart under protocol v2 (2026-10-10)
+Protocol v2 = protocol v1 + required `Server-Timing` header + all runs from the blr1 load-generator droplet.
+All protocol-v1 results (MacBook load source) are dropped: their GitHub releases/tags are deleted and
+`results/node-express-*`, the README tables and `results/results.csv` are cleared. They stay in git history up to
+commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
+- No pool: ~20 ms CPU per request, ~60 % of it Postgres connection setup; capacity 90 VUs / 42.8 req/s.
+- `pg.Pool` (max 10): ~1.7–2 ms CPU per request; capacity 1250 VUs / 627 req/s; CPU ceiling ≈ 600–630 req/s;
+  overload degrades into queueing with 0 % errors. Memory never above ~500 MB.
+- Unexplained p95/p99 tail from 400 VUs while CPU < 60 % — server timing should explain it.
+
+### Phase 1 — Node.js + Express + Postgres (protocol v2)
+- `apps/node-express/`: Express 5.3.0, pg 8.23.1, plain SQL, no ORM, single process, no reverse proxy, no request
+  logging, `NODE_ENV=production`, default heap. `build.sh`: `npm ci --omit=dev`; `start.sh`: `exec node src/server.js`.
 - Postgres 16 defaults (shared_buffers 128 MB, max_connections 100). Swap off.
-- Versions: express 5.3.0, pg 8.23.1 (exact pins in `package.json`), Node v24.21.0 on the droplet.
-- Writes use explicit `BEGIN/COMMIT` with a checked-out client (like/unlike/comment: 3–4 round trips). Collapsing
-  them into a single CTE statement is a Phase 2 candidate. Express defaults kept (ETag on, `x-powered-by` on).
-- [x] Contract implemented and verified with curl (status codes, 400/401/404 paths, private posts, idempotent likes).
-- [x] Deployed to the droplet (`scripts/deploy.sh node-express`).
-- [x] Baseline run 2026-10-10. Capacity < 100 VUs: CPU-bound at 100 VUs (44 req/s, p95 824 ms, 0 % errors);
-      250 VUs → 24 % errors from Postgres connection exhaustion. Postgres spends ~60 % CPU on per-request
-      connection setup. Memory peaked at 530 MB used. Details: `results/node-express-v01-baseline/config.md`.
-- [x] Re-run as `node-express-v01-baseline-r2` (new criteria + search): **capacity 90 VUs / 42.8 req/s**
-      (marginal, p99 980 ms; 75 VUs comfortable at p99 261 ms),
-      100 VUs fails on p95/p99 at the ~44 req/s CPU ceiling. ~20 ms CPU/request, ~60 % in Postgres.
-- [x] `node-express-v02-pool` (`pg.Pool` defaults, max 10): 100–1250 VUs pass → **1250 VUs / 627.3 req/s**; 1500 VUs
-      fails on latency at the CPU ceiling (≈ 600 req/s, 100 % CPU, 0 % errors). ~1.7–2 ms CPU per request. The p95/p99 tail from 400 VUs does not track
-      CPU — needs server-side timing to isolate (pool queue vs. load generator).
-- [ ] Next: run v02 at higher VU levels (user picks), then pool-size experiments.
-- Expectation to verify: 1 vCPU saturates before 1 GB RAM does; watch steal %, the pool queue, and OOM kills.
+- Writes use explicit `BEGIN/COMMIT` (like/unlike/comment: 3–4 round trips). Express defaults kept (ETag on,
+  `x-powered-by` on).
+- [ ] **`node-express-v01-baseline`** — no pool (new `pg.Client` per request) + `Server-Timing`. Expect `conn` to
+      dominate server time, and `53300 too many clients` errors once concurrent requests exceed 100.
+- [ ] **`node-express-v02-pool`** — one change: `pg.Pool` defaults (max 10) + `Server-Timing`. Use `conn` (pool wait)
+      to test whether the pool queue causes the tail seen in protocol v1.
+- VU levels are chosen by the user for every run.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
-Candidates, roughly in order: introduce `pg.Pool` (default max 10), then pool size (5 / 20 / 50); `pg-native` or prepared statements; Postgres tuning
+Candidates, roughly in order: pool size (5 / 20 / 50); `pg-native` or prepared statements; Postgres tuning
 (`shared_buffers`, `work_mem`, `synchronous_commit=off` as a labelled trade-off); 1 GB swap file; cluster with 2
 workers (expected little gain on 1 vCPU — measure it); `--max-old-space-size`; Fastify instead of Express;
 single-statement CTE writes instead of BEGIN/COMMIT; disable ETag; in-process cache of the first global feed page
