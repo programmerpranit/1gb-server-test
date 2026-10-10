@@ -1,0 +1,45 @@
+# 1 GB Server Test
+
+How far can a **$6/month DigitalOcean droplet** (1 vCPU, 1 GB RAM, 25 GB SSD, 1000 GB transfer) go running the same
+small social-feed API written in different languages and frameworks, with Postgres on the same box?
+
+Every configuration is hit with the same 2-minute k6 test (60 s ramp from 0 to N virtual users, 60 s hold) and tagged
+as a GitHub release with its code and raw results. Methodology, API contract and plan live in [CLAUDE.md](CLAUDE.md).
+
+## Headline: capacity per configuration
+
+**Capacity** is the highest VU level on the ladder where whole-run error rate is below 1 % and steady-state p95 is
+below 500 ms. Filled in by hand from the detailed table after each tag.
+
+| Tag | Stack | What changed | Capacity (VUs) | Steady req/s at capacity | p95 ms | p99 ms | Peak used MB | Release |
+|---|---|---|---|---|---|---|---|---|
+| _node-express-v01-baseline_ | _node-express_ | _baseline_ | | | | | | |
+
+## All runs
+
+One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
+
+- **Steady** columns cover only the 60 s hold phase; Total req and Error % cover the whole 2 min.
+- Latency is k6 `http_req_duration` (server time + network to the load generator). Compare runs only with the same
+  **Load from**.
+- **App MB / PG MB** are PSS summed over the systemd unit's processes (Postgres shared memory is not double counted).
+  **Used MB** is `MemTotal - MemAvailable` for the whole droplet.
+- **CPU %** is whole-machine busy time out of one vCPU; **Steal %** is time taken by the hypervisor (noisy neighbours).
+- **Error** = any non-2xx response or a request that exceeded the 10 s timeout.
+
+<!-- RESULTS:START -->
+| Tag | Stack | VUs | Steady req/s | Steady req/min | Total req | p50 ms | p90 ms | p95 ms | p99 ms | Max ms | Error % | App MB (peak) | PG MB (peak) | Used MB (peak) | Swap MB | CPU % (avg steady) | Steal % | Load from |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+<!-- RESULTS:END -->
+
+## Reproducing
+
+```bash
+cp .env.example .env            # fill SERVER_HOST, DB_PASSWORD, LOADGEN_LABEL
+brew install k6                 # on the load generator (Ubuntu: https://grafana.com/docs/k6/latest/set-up/install-k6/)
+scripts/provision.sh            # once per droplet
+scripts/seed_db.sh              # once, or when schema/converter changes
+scripts/deploy.sh node-express  # each time the app changes
+scripts/run_test.sh node-express-v01-baseline 100 250 500 1000
+scripts/release.sh node-express-v01-baseline
+```

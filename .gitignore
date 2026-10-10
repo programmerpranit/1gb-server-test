@@ -1,0 +1,11 @@
+.env
+.DS_Store
+data/*
+!data/meta.json
+node_modules/
+target/
+__pycache__/
+*.pyc
+.venv/
+*.tgz
+results/**/k6_raw*
