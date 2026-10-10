@@ -17,9 +17,6 @@ the highest passing VU level tested; this table is updated automatically. Every 
 <!-- CAPACITY:START -->
 | Tag | Stack | What changed | Capacity (VUs) | First fail (VUs) | Steady req/s | Steady req/min | p50 ms | p95 ms | p99 ms | Error % | Peak used MB | Release |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| node-express-v01-baseline | node-express | baseline: no pool, new connection per request (old criteria, no search) | < 100 | 100 | - | - | - | - | - | - | - | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v01-baseline) |
-| node-express-v01-baseline-r2 | node-express | baseline: no pool, new connection per request | 90 | 100 | 42.8 | 2569 | 234.4 | 658.5 | 979.8 | 0 | 428 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v01-baseline-r2) |
-| node-express-v02-pool | node-express | pg.Pool with default settings (max 10) instead of a new connection per request | 1250 | 1500 | 627.3 | 37636 | 77.3 | 447.3 | 680.3 | 0 | 479 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v02-pool) |
 <!-- CAPACITY:END -->
 
 ## Findings
@@ -27,20 +24,8 @@ the highest passing VU level tested; this table is updated automatically. Every 
 One analysis summary per tag; the full report (summary, configuration, results, observations) is
 `results/<tag>/config.md` and is also the GitHub release notes.
 
-- **node-express-v01-baseline** — No connection pool (new Postgres connection per request). CPU-bound from 100 VUs
-  (~97 % of the single vCPU); Postgres spends ~60 % of CPU on per-request connection setup (backend fork + SCRAM
-  auth). 250 VUs → 24 % errors from connection exhaustion (`max_connections` 100). Memory is not the limit (530 MB
-  peak). [Report](results/node-express-v01-baseline/config.md)
-- **node-express-v01-baseline-r2** — Same build, new criteria + capacity search. **Capacity 75 VUs / 39.1 req/s**
-  -> **90 VUs / 42.8 req/s** after an extra 90-VU run (marginal pass: p99 980 ms; 75 VUs is the comfortable level at
-  p99 261 ms); 100 VUs fails on latency (p95 890 ms) at a ~44 req/s CPU ceiling. ~20 ms CPU per request, ~60 % of
-  it in Postgres (connection setup). Memory ≤ 487 MB. Repeatable vs. v01 within 2 % throughput.
-  [Report](results/node-express-v01-baseline-r2/config.md)
-- **node-express-v02-pool** — `pg.Pool` defaults (max 10). **Capacity 1250 VUs / 627.3 req/s** (p95 447 ms, p99 680 ms,
-  0 % errors) — 13.9× users, 14.7× throughput vs. v01-r2. Near the ceiling single runs are noisy (1200 VUs scored
-  worse than 1250 after a load-generator stall). 1500 VUs fails on latency (p95 1143 ms) at a **~600–630 req/s CPU
-  ceiling** with still 0 % errors (graceful queueing). CPU per request ~20 ms → ~1.7–2 ms. The p95/p99 tail from 400 VUs does not track CPU (likely pool queue
-  or load generator). Memory 472 MB peak. [Report](results/node-express-v02-pool/config.md)
+_No protocol-v2 results yet. Protocol-v1 results (MacBook load source) were dropped on 2026-10-10; see git history
+up to commit `e10904b` and the "Restart under protocol v2" notes in CLAUDE.md._
 
 ## All runs
 
@@ -58,22 +43,6 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 <!-- RESULTS:START -->
 | Tag | Stack | VUs | Pass | Steady req/s | Steady req/min | Total req | p50 ms | p90 ms | p95 ms | p99 ms | Max ms | Error % | App MB (peak) | PG MB (peak) | Used MB (peak) | Swap MB | CPU % (avg steady) | Steal % | Load from |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| node-express-v01-baseline | node-express | 100 | FAIL | 44.4 | 2666 | 4207 | 331.8 | 703.6 | 824.4 | 1001.7 | 1138 | 0 | 107 | 63 | 425 | 0 | 96.7 | 0.1 | macbook-home-wifi |
-| node-express-v01-baseline | node-express | 250 | FAIL | 57.4 | 3441 | 5869 | 2694.0 | 3500.0 | 3764.9 | 4298.2 | 4780 | 24.08 | 114 | 124 | 530 | 0 | 100.0 | 0.3 | macbook-home-wifi |
-| node-express-v01-baseline-r2 | node-express | 100 | FAIL | 43.7 | 2622 | 4100 | 460.6 | 792.8 | 889.5 | 1025.3 | 1132 | 0 | 106 | 66 | 487 | 0 | 97.9 | 0.3 | macbook-home-wifi |
-| node-express-v01-baseline-r2 | node-express | 50 | PASS | 26.4 | 1584 | 2390 | 49.9 | 95.4 | 117.6 | 171.3 | 212 | 0 | 103 | 42 | 399 | 0 | 52.0 | 0.1 | macbook-home-wifi |
-| node-express-v01-baseline-r2 | node-express | 75 | PASS | 39.1 | 2345 | 3536 | 80.7 | 164.5 | 202.1 | 261.2 | 323 | 0 | 106 | 41 | 409 | 0 | 78.2 | 0.1 | macbook-home-wifi |
-| node-express-v01-baseline-r2 | node-express | 90 | PASS | 42.8 | 2569 | 3974 | 234.4 | 550.9 | 658.5 | 979.8 | 1177 | 0 | 103 | 59 | 428 | 0 | 94.1 | 0.3 | macbook-home-wifi |
-| node-express-v02-pool | node-express | 100 | PASS | 53.3 | 3196 | 4835 | 37.7 | 41.8 | 45.6 | 67.8 | 200 | 0 | 101 | 68 | 410 | 0 | 18.2 | 0.5 | macbook-home-wifi |
-| node-express-v02-pool | node-express | 150 | PASS | 79.8 | 4791 | 7253 | 37.9 | 43.9 | 50.6 | 153.7 | 715 | 0 | 102 | 85 | 432 | 0 | 26.2 | 0.9 | macbook-home-wifi |
-| node-express-v02-pool | node-express | 200 | PASS | 106.3 | 6378 | 9678 | 37.8 | 44.2 | 55.3 | 287.5 | 737 | 0 | 104 | 89 | 443 | 0 | 30.5 | 0.6 | macbook-home-wifi |
-| node-express-v02-pool | node-express | 400 | PASS | 209.4 | 12565 | 19031 | 40.3 | 163.2 | 284.4 | 446.7 | 644 | 0 | 107 | 100 | 454 | 0 | 50.9 | 0.9 | macbook-home-wifi |
-| node-express-v02-pool | node-express | 500 | PASS | 263.1 | 15785 | 23975 | 30.1 | 127.2 | 233.1 | 519.7 | 1900 | 0 | 109 | 103 | 458 | 0 | 57.8 | 0.3 | macbook-home-wifi |
-| node-express-v02-pool | node-express | 700 | PASS | 367.0 | 22020 | 33613 | 29.6 | 126.9 | 281.8 | 493.7 | 683 | 0 | 110 | 106 | 464 | 0 | 78.6 | 1.4 | macbook-home-wifi |
-| node-express-v02-pool | node-express | 900 | PASS | 461.0 | 27660 | 42235 | 66.3 | 259.4 | 318.4 | 457.7 | 746 | 0 | 113 | 108 | 472 | 0 | 91.3 | 0.6 | macbook-home-wifi |
-| node-express-v02-pool | node-express | 1500 | FAIL | 598.9 | 35931 | 58626 | 666.7 | 1013.3 | 1142.9 | 1263.4 | 1378 | 0 | 134 | 109 | 497 | 0 | 100.0 | 0.2 | macbook-home-wifi |
-| node-express-v02-pool | node-express | 1200 | PASS | 564.5 | 33867 | 52270 | 225.0 | 608.5 | 729.0 | 844.8 | 934 | 0 | 120 | 108 | 480 | 0 | 95.3 | 0.4 | macbook-home-wifi |
-| node-express-v02-pool | node-express | 1250 | PASS | 627.3 | 37636 | 56981 | 77.3 | 366.0 | 447.3 | 680.3 | 818 | 0 | 118 | 109 | 479 | 0 | 92.5 | 0.1 | macbook-home-wifi |
 <!-- RESULTS:END -->
 
 ## Reproducing
