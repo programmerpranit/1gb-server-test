@@ -1,0 +1,10 @@
+Oct 10 15:19:06 1gb-test systemd[1]: Stopping bench-app.service - Benchmark app (node-express)...
+Oct 10 15:19:06 1gb-test systemd[1]: bench-app.service: Deactivated successfully.
+Oct 10 15:19:06 1gb-test systemd[1]: Stopped bench-app.service - Benchmark app (node-express).
+Oct 10 15:19:06 1gb-test systemd[1]: Started bench-app.service - Benchmark app (node-express).
+Oct 10 15:19:06 1gb-test start.sh[54127]: node-express listening on :3000
+Oct 10 15:19:24 1gb-test systemd[1]: Stopping bench-app.service - Benchmark app (node-express)...
+Oct 10 15:19:24 1gb-test systemd[1]: bench-app.service: Deactivated successfully.
+Oct 10 15:19:24 1gb-test systemd[1]: Stopped bench-app.service - Benchmark app (node-express).
+Oct 10 15:19:27 1gb-test systemd[1]: Started bench-app.service - Benchmark app (node-express).
+Oct 10 15:19:27 1gb-test start.sh[54366]: node-express listening on :3000

@@ -296,10 +296,12 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
 - [x] `Server-Timing` implemented (first middleware patches `res.writeHead`; `withClient(req, fn)` times connect +
       close as `conn` and each query as `db`), k6 Trends `server_*`, summarizer/CSV/README columns. Verified locally:
       header on every response incl. 400/401/404; 30-VU smoke: server total p50 10.9 ms = conn 6.6 + db 3.5 + app 0.6.
-- [ ] **`node-express-v01-baseline`** — no pool (new `pg.Client` per request) + `Server-Timing`. Expect `conn` to
-      dominate server time, and `53300 too many clients` errors once concurrent requests exceed 100.
-- [ ] **`node-express-v02-pool`** — one change: `pg.Pool` defaults (max 10) + `Server-Timing`. Use `conn` (pool wait)
-      to test whether the pool queue causes the tail seen in protocol v1.
+- [x] **`node-express-v01-baseline`** — no pool (new `pg.Client` per request) + `Server-Timing`. Result: capacity
+      100 VUs / 46.7 req/s (marginal), CPU-bound; `conn` (connect + auth) ≈ 80 % of server time; no `53300` errors.
+- [x] **`node-express-v02-pool`** — one change: `pg.Pool` defaults (max 10) + `Server-Timing`. Result: capacity
+      1350 VUs / 619 req/s, first fail 1400; peak 651 req/s. CPU-bound (Node ≈ 42 % / PG ≈ 50 %, ≈ 1.5 ms CPU/req);
+      overload shows up as pool wait (`conn`), not query time or errors. The protocol-v1 tail from 400 VUs is gone
+      (p99 43 ms at 500 VUs) — it was the MacBook/Wi-Fi path.
 - VU levels are chosen by the user for every run.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
