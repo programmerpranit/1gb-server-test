@@ -265,7 +265,7 @@ before the next unrelated experiment unless they become the new baseline for tha
 - [x] Re-run as `node-express-v01-baseline-r2` (new criteria + search): **capacity 90 VUs / 42.8 req/s**
       (marginal, p99 980 ms; 75 VUs comfortable at p99 261 ms),
       100 VUs fails on p95/p99 at the ~44 req/s CPU ceiling. ~20 ms CPU/request, ~60 % in Postgres.
-- [x] `node-express-v02-pool` (`pg.Pool` defaults, max 10): 100–900 VUs pass → **900 VUs / 461.0 req/s**; 1500 VUs
+- [x] `node-express-v02-pool` (`pg.Pool` defaults, max 10): 100–1200 VUs pass → **1200 VUs / 564.5 req/s**; 1500 VUs
       fails on latency at the CPU ceiling (≈ 600 req/s, 100 % CPU, 0 % errors). ~1.7–2 ms CPU per request. The p95/p99 tail from 400 VUs does not track
       CPU — needs server-side timing to isolate (pool queue vs. load generator).
 - [ ] Next: run v02 at higher VU levels (user picks), then pool-size experiments.
