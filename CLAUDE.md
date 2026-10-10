@@ -258,16 +258,20 @@ before the next unrelated experiment unless they become the new baseline for tha
 - [x] Tooling smoke-tested (endpoints via curl, k6, `prepare_run.sh`, `collect_metrics.sh`).
 - Notes: macOS ships `openrsync` (no `--chmod`); the sampler is one long-lived python3 process because forking
   `awk`/`ss` every second cost ~10 % of the vCPU (now ~1–2 %).
-- [ ] **Load-generator droplet** (created by the user each session; IP goes into `LOADGEN_HOST`): blr1, same VPC,
-      Ubuntu 24.04, same SSH key, 2 vCPU / 4 GB to start (dedicated CPU preferred; upgrade if k6 CPU > ~70 %).
-      Stateless — destroyed after each session.
-  - [ ] `scripts/provision_loadgen.sh`: install k6, raise `ulimit -n`, network sysctls; idempotent, ~1–2 min.
-  - [ ] `run_test.sh` orchestrates from the Mac: copies `loadtest/stress.js` to the load generator, runs k6 there
-        against `TARGET_HOST` (10.122.0.2), copies `k6_summary.json` / report / stdout back. Records load-generator
-        CPU/memory during the run so a saturated k6 is visible.
-  - [ ] Target firewall: allow port 3000 from the VPC (10.122.0.0/16 — check the VPC range) so new load-generator
-        IPs need no change.
-  - [ ] `.env`: `LOADGEN_HOST`, `TARGET_HOST=10.122.0.2`, `LOADGEN_LABEL=do-blr1-loadgen-<size>`.
+- [x] **Load-generator droplet** (created by the user each session; IP goes into `LOADGEN_HOST`): blr1, same VPC
+      (private 10.122.0.3, /20), Ubuntu 24.04, same SSH key, **4 vCPU / 8 GB shared (DO-Regular 2.0 GHz)**,
+      label `do-blr1-loadgen-4vcpu-8gb`. Stateless — destroyed after each session. RTT to target ≈ 2 ms.
+  - [x] `scripts/provision_loadgen.sh` (→ `server/loadgen_setup.sh`): pinned k6 v2.3.0 binary, nofile 1048576,
+        port range / tw_reuse sysctls; idempotent, ~1 min.
+  - [x] `run_test.sh` orchestrates from the Mac: copies `loadtest/stress.js` to `/opt/loadgen/runs/<tag>/vus-<n>/`,
+        runs k6 there against `TARGET_HOST` (10.122.0.2), copies `k6_summary.json`, `k6_start.json`,
+        `k6_report.html` back; `loadgen_metrics.csv` samples load-generator CPU and k6 RSS (summary warns > 70 %).
+  - [x] **Live dashboard:** k6 web dashboard bound to the load generator's 127.0.0.1:5665 (no auth, never public),
+        tunnelled by `run_test.sh` to **http://localhost:5665** on the Mac for the whole session (2 s refresh). It
+        exists only while k6 runs — reload the page when the next VU level starts.
+  - [x] Target firewall already allows 3000/tcp (`ufw allow 3000/tcp`), so private-IP traffic works for any
+        load-generator IP.
+  - [x] Smoke test (20 VUs): all files back, Server-Timing recorded, outside-the-app p50 1.7 ms, load generator 1 % CPU.
 
 ### Restart under protocol v2 (2026-10-10)
 Protocol v2 = protocol v1 + required `Server-Timing` header + all runs from the blr1 load-generator droplet.

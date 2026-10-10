@@ -51,11 +51,11 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 ## Reproducing
 
 ```bash
-cp .env.example .env            # fill SERVER_HOST, DB_PASSWORD, LOADGEN_LABEL
-brew install k6                 # on the load generator (Ubuntu: https://grafana.com/docs/k6/latest/set-up/install-k6/)
-scripts/provision.sh            # once per droplet
+cp .env.example .env            # fill SERVER_HOST, DB_PASSWORD, LOADGEN_HOST, TARGET_HOST, LOADGEN_LABEL
+scripts/provision.sh            # once per target droplet
 scripts/seed_db.sh              # once, or when schema/converter changes
+scripts/provision_loadgen.sh    # once per load-generator droplet (installs pinned k6)
 scripts/deploy.sh node-express  # each time the app changes
-scripts/run_test.sh node-express-v01-baseline 100 250 500 1000
+scripts/run_test.sh node-express-v01-baseline 100 200 300   # live dashboard: http://localhost:5665
 scripts/release.sh node-express-v01-baseline
 ```

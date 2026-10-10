@@ -62,7 +62,7 @@ if [[ -n "$LOADGEN_HOST" ]]; then
   if lsof -ti "tcp:$DASHBOARD_PORT" >/dev/null 2>&1; then
     log "WARNING: local port $DASHBOARD_PORT is busy — live dashboard tunnel not opened"
   else
-    ssh "${SSH_OPTS[@]}" -o ExitOnForwardFailure=yes -N -L "$DASHBOARD_PORT:127.0.0.1:5665" "$LOADGEN_TARGET" &
+    ssh "${SSH_OPTS[@]}" -o ExitOnForwardFailure=yes -N -L "$DASHBOARD_PORT:127.0.0.1:5665" "$LOADGEN_TARGET" 2>/dev/null &
     TUNNEL_PID=$!
     trap 'kill $TUNNEL_PID 2>/dev/null || true' EXIT
     log "Live dashboard (while k6 runs): http://localhost:$DASHBOARD_PORT"
@@ -95,7 +95,10 @@ run_k6() {
     K6_WEB_DASHBOARD_PORT=5665 K6_WEB_DASHBOARD_PERIOD=2s K6_WEB_DASHBOARD_EXPORT='$RDIR/k6_report.html' \
     k6 run --quiet $QUOTED -e OUT_DIR='$RDIR' stress.js" > "$RUN_DIR/k6_stdout.txt" 2>&1 || true
   wait "$LG_PID" || true
-  scp -q "${SSH_OPTS[@]}" "$LOADGEN_TARGET:$RDIR/{k6_summary.json,k6_start.json,k6_report.html}" "$RUN_DIR/" || true
+  local f
+  for f in k6_summary.json k6_start.json k6_report.html; do
+    scp -q "${SSH_OPTS[@]}" "$LOADGEN_TARGET:$RDIR/$f" "$RUN_DIR/$f" || log "WARNING: could not fetch $f from the load generator"
+  done
 }
 
 STACK="$(remote cat /opt/bench/CURRENT_APP 2>/dev/null || echo unknown)"
