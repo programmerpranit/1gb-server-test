@@ -13,7 +13,7 @@ below 500 ms. Filled in by hand from the detailed table after each tag.
 
 | Tag | Stack | What changed | Capacity (VUs) | Steady req/s at capacity | p95 ms | p99 ms | Peak used MB | Release |
 |---|---|---|---|---|---|---|---|---|
-| _node-express-v01-baseline_ | _node-express_ | _baseline_ | | | | | | |
+| node-express-v01-baseline | node-express | baseline: no pool, new connection per request | < 100 (100 VUs: 0 % errors but p95 824 ms; 250 VUs: 24 % errors) | 44.4 (at 100 VUs) | 824 | 1002 | 425 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v01-baseline) |
 
 ## All runs
 
@@ -30,6 +30,8 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 <!-- RESULTS:START -->
 | Tag | Stack | VUs | Steady req/s | Steady req/min | Total req | p50 ms | p90 ms | p95 ms | p99 ms | Max ms | Error % | App MB (peak) | PG MB (peak) | Used MB (peak) | Swap MB | CPU % (avg steady) | Steal % | Load from |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| node-express-v01-baseline | node-express | 100 | 44.4 | 2666 | 4207 | 331.8 | 703.6 | 824.4 | 1001.7 | 1138 | 0 | 107 | 63 | 425 | 0 | 96.7 | 0.1 | macbook-home-wifi |
+| node-express-v01-baseline | node-express | 250 | 57.4 | 3441 | 5869 | 2694.0 | 3500.0 | 3764.9 | 4298.2 | 4780 | 24.08 | 114 | 124 | 530 | 0 | 100.0 | 0.3 | macbook-home-wifi |
 <!-- RESULTS:END -->
 
 ## Reproducing

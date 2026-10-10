@@ -240,7 +240,10 @@ before the next unrelated experiment unless they become the new baseline for tha
   them into a single CTE statement is a Phase 2 candidate. Express defaults kept (ETag on, `x-powered-by` on).
 - [x] Contract implemented and verified with curl (status codes, 400/401/404 paths, private posts, idempotent likes).
 - [x] Deployed to the droplet (`scripts/deploy.sh node-express`).
-- [ ] Commit, run the ladder (`scripts/run_test.sh node-express-v01-baseline`), fill `config.md`, release.
+- [x] Baseline run 2026-10-10. Capacity < 100 VUs: CPU-bound at 100 VUs (44 req/s, p95 824 ms, 0 % errors);
+      250 VUs → 24 % errors from Postgres connection exhaustion. Postgres spends ~60 % CPU on per-request
+      connection setup. Memory peaked at 530 MB used. Details: `results/node-express-v01-baseline/config.md`.
+- [ ] Next: `node-express-v02-pool` (introduce `pg.Pool`, defaults).
 - Expectation to verify: 1 vCPU saturates before 1 GB RAM does; watch steal %, the pool queue, and OOM kills.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)

@@ -1,0 +1,61 @@
+{
+  "tag": "node-express-v01-baseline",
+  "stack": "node-express",
+  "vus": 100,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791633957,
+  "loadgen": "macbook-home-wifi",
+  "loadgen_nofile": "65535",
+  "git_sha": "3c07548",
+  "k6_version": "k6 v2.3.0 (commit/devel, go1.27.1, darwin/arm64)",
+  "date": "2026-10-10T12:08:15Z",
+  "total_requests": 4207,
+  "avg_rps": 34.23698854866728,
+  "steady_requests": 2666,
+  "steady_rps": 44.43333333333333,
+  "steady_rpm": 2666.0,
+  "vus_max": 100,
+  "iterations": 3796,
+  "error_rate_pct": 0,
+  "steady_error_rate_pct": 0,
+  "latency_ms": {
+    "avg": 298.3364784882338,
+    "med": 255.991,
+    "p(90)": 634.7916000000001,
+    "p(95)": 754.1652999999998,
+    "p(99)": 966.86528,
+    "max": 1137.932
+  },
+  "steady_latency_ms": {
+    "avg": 370.1540907726934,
+    "med": 331.79449999999997,
+    "p(90)": 703.601,
+    "p(95)": 824.3529999999998,
+    "p(99)": 1001.6537999999999,
+    "max": 1137.932
+  },
+  "per_endpoint_p95_ms": {
+    "GET /users/:id/posts": 698.6157499999999,
+    "GET /me/posts": 697.5984499999998,
+    "GET /posts/:id": 761.1232499999999,
+    "POST /posts/:id/like": 931.2649499999997,
+    "DELETE /posts/:id/like": 908.8891999999997,
+    "POST /posts": 652.4481499999999,
+    "POST /posts/:id/comments": 804.6614999999999,
+    "GET /posts": 730.65825
+  },
+  "server": {
+    "app_pss_mb_peak": 107.0,
+    "pg_pss_mb_peak": 63.0,
+    "mem_used_mb_peak": 425.0,
+    "mem_avail_mb_min": 536.0,
+    "swap_used_mb_peak": 0.0,
+    "cpu_total_pct_avg_steady": 96.72666666666666,
+    "cpu_steal_pct_avg_steady": 0.13333333333333333,
+    "app_cpu_pct_avg_steady": 31.019999999999996,
+    "pg_cpu_pct_avg_steady": 60.66166666666667,
+    "app_conns_peak": 100.0,
+    "load1_peak": 3.93
+  }
+}
