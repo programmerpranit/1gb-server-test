@@ -1,18 +1,19 @@
 'use strict';
 
 // Implementation of the protocol v2 API (see CLAUDE.md "API contract").
-// Deliberately plain: Express defaults, one process, NO connection pool — every request opens its own
-// Postgres connection and closes it when done. One query per step.
-// Every response carries a Server-Timing header: conn (connect + auth), db (queries), app (the rest), total.
+// Deliberately plain: Express defaults, one process, a pg.Pool with default settings (max 10) — every request
+// borrows one connection for all its queries and returns it when done. One query per step.
+// Every response carries a Server-Timing header: conn (pool wait), db (queries), app (the rest), total.
 
 const express = require('express');
-const { Client, types } = require('pg');
+const { Pool, types } = require('pg');
 
 // bigint ids/counters come back as strings by default; all our values fit in a JS number.
 types.setTypeParser(20, (v) => parseInt(v, 10));
 
 const PORT = Number(process.env.PORT || 3000);
-const DATABASE_URL = process.env.DATABASE_URL;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+pool.on('error', (err) => console.error('pg pool error', err));
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -100,15 +101,15 @@ function serverTiming(req, res, next) {
 }
 
 // --- Database access ---------------------------------------------------------------------------------------------
-// One fresh connection per request, closed before the response is sent. `fn` receives a query wrapper that adds
-// each query's duration to req.timing.db; connect + auth and close time go to req.timing.conn.
+// One pooled connection per request, returned to the pool before the response is sent. `fn` receives a query
+// wrapper that adds each query's duration to req.timing.db; time waiting for a pooled connection (or opening a new
+// one while the pool fills) goes to req.timing.conn. A connection whose ROLLBACK failed is destroyed, not reused.
 async function withClient(req, fn) {
   const timing = req.timing;
-  const client = new Client({ connectionString: DATABASE_URL });
-  client.on('error', (err) => console.error('pg client error', err));
   const connectStart = nowMs();
+  let client;
   try {
-    await client.connect();
+    client = await pool.connect();
   } finally {
     timing.conn += nowMs() - connectStart;
   }
@@ -122,12 +123,14 @@ async function withClient(req, fn) {
       }
     },
   };
+  let broken;
   try {
     return await fn(db);
+  } catch (err) {
+    if (err.brokenConnection) broken = err;
+    throw err;
   } finally {
-    const endStart = nowMs();
-    await client.end().catch(() => {});
-    timing.conn += nowMs() - endStart;
+    client.release(broken);
   }
 }
 
@@ -139,7 +142,7 @@ async function withTransaction(req, fn) {
       await db.query('COMMIT');
       return result;
     } catch (err) {
-      await db.query('ROLLBACK').catch(() => {});
+      await db.query('ROLLBACK').catch(() => { err.brokenConnection = true; });
       throw err;
     }
   });
@@ -283,7 +286,7 @@ app.use((err, req, res, next) => {
 const server = app.listen(PORT, () => console.log(`node-express listening on :${PORT}`));
 
 function shutdown() {
-  server.close(() => process.exit(0));
+  server.close(() => pool.end().then(() => process.exit(0)));
   setTimeout(() => process.exit(1), 5000).unref();
 }
 process.on('SIGTERM', shutdown);
