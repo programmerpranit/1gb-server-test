@@ -33,6 +33,7 @@ LEVELS="$(python3 -I -c "import glob,re,sys; print(' '.join(sorted((re.search(r'
 
 # Visual report with charts (k6 time series + server samples): results/<tag>/report.html
 python3 -I scripts/report_html.py "$TAG_DIR" >/dev/null
+python3 -I scripts/readme_analysis.py
 
 git add "$TAG_DIR" README.md results/results.csv
 [[ -f CLAUDE.md ]] && git add CLAUDE.md
