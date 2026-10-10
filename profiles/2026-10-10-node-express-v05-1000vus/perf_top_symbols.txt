@@ -1,0 +1,13 @@
+    13.59%  swapper          [kernel.kallsyms]         [k] pv_native_safe_halt
+     3.74%  postgres         libc.so.6                 [.] 0x000000000018984a
+     1.32%  postgres         postgres                  [.] hash_search_with_hash_value
+     0.97%  postgres         postgres                  [.] _bt_compare
+     0.91%  MainThread       node                      [.] Builtins_KeyedLoadIC_Megamorphic
+     0.77%  MainThread       node                      [.] Builtins_LoadIC
+     0.74%  postgres         postgres                  [.] AllocSetAlloc
+     0.73%  MainThread       node                      [.] Builtins_RecordWriteSaveFP
+     0.65%  v8:ProfEvntProc  node                      [.] v8::internal::InstructionStreamMap::FindEntry(unsigned long, unsigned long*)
+     0.62%  postgres         [kernel.kallsyms]         [k] finish_task_switch.isra.0
+     0.61%  MainThread       node                      [.] unsigned long v8::internal::StringTable::Data::TryStringToIndexOrLookupExisting<unsigned char>(v8::internal::Isolate*, v8::internal::Tagged<v8::internal::String>, v8::internal::Tagged<v8::internal::String>, unsigned long)
+     0.52%  MainThread       node                      [.] Builtins_LoadIC_Megamorphic
+     0.50%  MainThread       [kernel.kallsyms]         [k] iowrite16

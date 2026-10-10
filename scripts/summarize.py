@@ -74,6 +74,8 @@ CSV_COLUMNS = [
     "app_pss_mb_peak", "pg_pss_mb_peak", "mem_used_mb_peak", "mem_avail_mb_min", "swap_used_mb_peak",
     "cpu_total_pct_avg_steady", "cpu_steal_pct_avg_steady", "app_cpu_pct_avg_steady", "pg_cpu_pct_avg_steady",
     "app_conns_peak", "load1_peak",
+    # host speed (fixed workload timed before/after the run; higher = slower vCPU) and CPU cost per request
+    "cpu_probe_before_ms", "cpu_probe_after_ms", "cpu_ms_per_req_steady",
 ]
 
 
@@ -258,6 +260,10 @@ def summarize(run_dir, crit):
     s["server"] = server_stats(metrics_csv, steady_from, steady_from + hold_s) if os.path.exists(metrics_csv) else {}
     lg_csv = os.path.join(run_dir, "loadgen_metrics.csv")
     s["loadgen_stats"] = loadgen_stats(lg_csv, steady_from, steady_from + hold_s) if os.path.exists(lg_csv) else {}
+    # CPU cost per request (ms of the single vCPU): comparable across runs only together with the host-speed probe.
+    cpu = s["server"].get("cpu_total_pct_avg_steady")
+    s["cpu_ms_per_req_steady"] = cpu * 10 / s["steady_rps"] if cpu is not None and s["steady_rps"] else None
+    s["cpu_probe_ms"] = {k: env.get(f"cpu_probe_{k}_ms") for k in ("before", "after")}
 
     passed, reasons = judge(s, crit)
     s["pass"], s["fail_reasons"] = passed, reasons
@@ -288,6 +294,9 @@ def summarize(run_dir, crit):
     md += ["", f"Outside the app (client p − server total p): p50 {fmt(s['outside_ms']['med'])} ms, "
                f"p95 {fmt(s['outside_ms']['p(95)'])} ms. Responses without Server-Timing: {s['server_timing_missing']}.",
            ""]
+    probe = s["cpu_probe_ms"]
+    md += [f"CPU per request (steady): {fmt(s['cpu_ms_per_req_steady'], 2)} ms. Host-speed probe (fixed workload, higher = "
+           f"slower vCPU): before {probe['before'] or '-'} ms, after {probe['after'] or '-'} ms.", ""]
     lg = s["loadgen_stats"]
     if lg:
         md += [f"Load generator: CPU {fmt(lg['lg_cpu_pct_avg_steady'])} % avg steady / {fmt(lg['lg_cpu_pct_peak'])} % peak "
@@ -330,6 +339,8 @@ def summarize(run_dir, crit):
         "outside_p50_ms": rnd(s["outside_ms"]["med"]), "outside_p95_ms": rnd(s["outside_ms"]["p(95)"]),
         "server_timing_missing": s["server_timing_missing"],
         **{k: rnd(v) for k, v in s["loadgen_stats"].items()},
+        "cpu_probe_before_ms": env.get("cpu_probe_before_ms"), "cpu_probe_after_ms": env.get("cpu_probe_after_ms"),
+        "cpu_ms_per_req_steady": rnd(s["cpu_ms_per_req_steady"], 3),
     }
     return s, row, record
 

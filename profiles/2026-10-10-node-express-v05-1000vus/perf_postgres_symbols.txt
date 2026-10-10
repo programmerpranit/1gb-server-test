@@ -1,0 +1,6 @@
+     3.74%  [.] 0x000000000018984a
+     1.32%  [.] hash_search_with_hash_value
+     1.10%  [k] _raw_spin_unlock_irqrestore
+     0.97%  [.] _bt_compare
+     0.79%  [k] handle_softirqs
+     0.74%  [.] AllocSetAlloc

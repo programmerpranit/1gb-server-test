@@ -1,0 +1,117 @@
+    25.36%  MainThread       node                    
+            |          
+            |--0.91%--Builtins_KeyedLoadIC_Megamorphic
+            |          
+            |--0.77%--Builtins_LoadIC
+            |          
+            |--0.73%--Builtins_RecordWriteSaveFP
+            |          
+            |--0.61%--unsigned long v8::internal::StringTable::Data::TryStringToIndexOrLookupExisting<unsigned char>(v8::internal::Isolate*, v8::internal::Tagged<v8::internal::String>, v8::internal::Tagged<v8::internal::String>, unsigned long)
+            |          
+             --0.52%--Builtins_LoadIC_Megamorphic
+    22.70%  postgres         postgres                
+            |          
+            |--1.32%--hash_search_with_hash_value
+            |          |          
+            |           --0.77%--0x5868b0438a6b
+            |                     ReadBufferExtended
+            |          
+            |--0.97%--_bt_compare
+            |          |          
+            |           --0.91%--0x5868b011eff1
+            |                     |          
+            |                      --0.63%--_bt_first
+            |                                btgettuple
+            |                                index_getnext_tid
+            |                                |          
+            |                                 --0.60%--0x5868b02c6451
+            |                                           |          
+            |                                            --0.59%--ExecScan
+            |                                                      |          
+            |                                                       --0.56%--0x5868b02cbc05
+            |                                                                 0x5868b02ce77d
+            |                                                                 |          
+            |                                                                  --0.55%--0x5868b02c9516
+            |                                                                            standard_ExecutorRun
+            |                                                                            0x5868b0477795
+            |                                                                            PortalRun
+            |                                                                            PostgresMain
+            |                                                                            0x5868b065a3d3
+            |                                                                            PostmasterMain
+            |                                                                            main
+            |                                                                            0x72f1c9c2a1ca
+            |                                                                            __libc_start_main
+            |                                                                            _start
+            |          
+             --0.74%--AllocSetAlloc
+    14.28%  swapper          [kernel.kallsyms]       
+            |          
+             --13.59%--pv_native_safe_halt
+                       arch_cpu_idle
+                       default_idle_call
+                       cpuidle_idle_call
+                       do_idle
+                       cpu_startup_entry
+                       rest_init
+                       arch_call_rest_init
+                       start_kernel
+                       x86_64_start_reservations
+                       x86_64_start_kernel
+                       secondary_startup_64_no_verify
+     8.40%  MainThread       [kernel.kallsyms]       
+            |          
+             --0.50%--iowrite16
+                       virtqueue_notify
+                       start_xmit
+                       dev_hard_start_xmit
+                       sch_direct_xmit
+                       __dev_xmit_skb
+                       __dev_queue_xmit
+                       neigh_hh_output
+                       ip_finish_output2
+                       __ip_finish_output
+                       ip_finish_output
+                       ip_output
+                       ip_local_out
+                       __ip_queue_xmit
+                       ip_queue_xmit
+                       __tcp_transmit_skb
+     8.08%  MainThread       [JIT] tid 64132         
+     6.51%  postgres         [kernel.kallsyms]       
+            |          
+             --0.62%--finish_task_switch.isra.0
+                       __schedule
+                       |          
+                        --0.60%--schedule
+     5.63%  postgres         libc.so.6               
+            |          
+             --3.74%--0x72f1c9d8984a
+                       0x5868b02ca6d2
+                       ExecInitMemoize
+                       ExecInitNode
+                       ExecInitNestLoop
+                       ExecInitNode
+                       ExecInitLimit
+                       ExecInitNode
+                       standard_ExecutorStart
+                       PortalStart
+                       PostgresMain
+                       0x5868b065a3d3
+                       PostmasterMain
+                       main
+                       0x72f1c9c2a1ca
+                       __libc_start_main
+                       _start
+     2.13%  MainThread       libc.so.6               
+     2.09%  v8:ProfEvntProc  node                    
+            |          
+             --0.65%--v8::internal::InstructionStreamMap::FindEntry(unsigned long, unsigned long*)
+                       |          
+                        --0.62%--v8::internal::Symbolizer::SymbolizeTickSample(v8::internal::TickSample const&)
+                                  v8::internal::SamplingEventsProcessor::ProcessOneSample()
+                                  v8::internal::SamplingEventsProcessor::Run()
+                                  v8::base::ThreadEntry(void*)
+                                  0x7cdff749cb84
+                                  0x7cdff7529ecc
+     1.59%  v8:ProfEvntProc  [kernel.kallsyms]       
+     0.95%  htop             [kernel.kallsyms]       

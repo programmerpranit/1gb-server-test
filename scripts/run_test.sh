@@ -115,6 +115,8 @@ run_level() {
   rm -rf "$RUN_DIR"; mkdir -p "$RUN_DIR"
   log "[$TAG] $VUS VUs — preparing server"
   remote_script "$REPO_ROOT/scripts/server/prepare_run.sh" "$DB_USER" "$APP_PORT" > "$RUN_DIR/server_env.txt"
+  # Host speed right before the run (shared vCPU speed varies; see cpu_probe.sh). Never during the run.
+  remote_script "$REPO_ROOT/scripts/server/cpu_probe.sh" before >> "$RUN_DIR/server_env.txt" || true
 
   log "[$TAG] $VUS VUs — starting sampler"
   remote_script "$REPO_ROOT/scripts/server/collect_metrics.sh" "$((RAMP_S + HOLD_S + 20))" "$APP_PORT" \
@@ -127,6 +129,7 @@ run_level() {
   run_k6 "$VUS" "$RUN_DIR"
 
   wait "$SAMPLER_PID" || true
+  remote_script "$REPO_ROOT/scripts/server/cpu_probe.sh" after >> "$RUN_DIR/server_env.txt" || true
   remote "journalctl -u bench-app --since '-3min' --no-pager | tail -200" > "$RUN_DIR/app_log_tail.txt" 2>&1 || true
   cp "$TAG_DIR/bench.json" "$RUN_DIR/bench.json"
 

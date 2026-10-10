@@ -1,0 +1,43 @@
+V8 CPU profile: 129.6 s wall, 63.3 s on-CPU in the main thread (49 %), idle 66.3 s. Percentages below are of on-CPU time.
+
+Self time by category
+   55.0 %  other
+   16.6 %  node core (http, net, streams)
+   11.5 %  express + middleware
+    9.2 %  pg driver
+    2.8 %  app code
+    2.7 %  V8/native (program)
+    1.8 %  garbage collection
+    0.4 %  etag (response hashing)
+
+Top 30 functions by self time
+   51.6 %  writev  
+    4.7 %  stringify  express/lib/response.js:1026
+    2.7 %  (program)  
+    1.8 %  (garbage collector)  
+    1.5 %  cloneQueryConfig  pg/lib/utils.js:171
+    1.4 %  addFields  pg/lib/result.js:82
+    1.3 %  parseDate  postgres-date/index.js:8
+    1.2 %  handle  express/lib/application.js:152
+    1.1 %  utf8Slice  
+    1.0 %  Hash  node:internal/crypto/hash:98
+    0.9 %  emit  node:events:489
+    0.8 %  runMicrotasks  
+    0.6 %  processTicksAndRejections  node:internal/process/task_queues:72
+    0.6 %  _storeHeader  node:_http_outgoing:438
+    0.5 %  writevGeneric  node:internal/stream_base_commons:121
+    0.5 %  update  node:internal/crypto/hash:146
+    0.5 %  nextTick  node:internal/process/task_queues:113
+    0.5 %  digest  node:internal/crypto/hash:164
+    0.5 %  next  router/index.js:188
+    0.5 %  withClient  file:///opt/bench/app/src/server.js:120
+    0.5 %  parserOnHeadersComplete  node:_http_common:77
+    0.4 %  end  node:_http_outgoing:1143
+    0.4 %  query  pg/lib/client.js:668
+    0.4 %  setHeader  node:_http_outgoing:682
+    0.4 %  resOnFinish  node:_http_server:1096
+    0.4 %  statementName  file:///opt/bench/app/src/server.js:108
+    0.4 %  timedWriteHead  file:///opt/bench/app/src/server.js:94
+    0.4 %  (anonymous)  
+    0.4 %  header  express/lib/response.js:671
+    0.4 %  toString  node:buffer:918
