@@ -14,10 +14,10 @@ rsync -az -e "$SSH_CMD" --delete \
 log "Building + restarting"
 remote_script "$REPO_ROOT/scripts/server/install_app.sh" "$APP_NAME"
 
+# Checked on the droplet itself: BASE_URL may be the private IP, which only the load generator can reach.
 log "Health check"
-for _ in $(seq 1 30); do
-  if curl -fsS "$BASE_URL/health" >/dev/null; then log "Up: $BASE_URL"; exit 0; fi
-  sleep 1
-done
-echo "App did not become healthy at $BASE_URL/health" >&2
+if remote "for _ in \$(seq 1 30); do curl -fsS http://127.0.0.1:$APP_PORT/health >/dev/null && exit 0; sleep 1; done; exit 1"; then
+  log "Up on the droplet (load tests use $BASE_URL)"; exit 0
+fi
+echo "App did not become healthy at 127.0.0.1:$APP_PORT/health on the droplet" >&2
 exit 1
