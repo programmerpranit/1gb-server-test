@@ -265,7 +265,7 @@ before the next unrelated experiment unless they become the new baseline for tha
 - [x] Re-run as `node-express-v01-baseline-r2` (new criteria + search): **capacity 90 VUs / 42.8 req/s**
       (marginal, p99 980 ms; 75 VUs comfortable at p99 261 ms),
       100 VUs fails on p95/p99 at the ~44 req/s CPU ceiling. ~20 ms CPU/request, ~60 % in Postgres.
-- [x] `node-express-v02-pool` (`pg.Pool` defaults, max 10): 100–1200 VUs pass → **1200 VUs / 564.5 req/s**; 1500 VUs
+- [x] `node-express-v02-pool` (`pg.Pool` defaults, max 10): 100–1250 VUs pass → **1250 VUs / 627.3 req/s**; 1500 VUs
       fails on latency at the CPU ceiling (≈ 600 req/s, 100 % CPU, 0 % errors). ~1.7–2 ms CPU per request. The p95/p99 tail from 400 VUs does not track
       CPU — needs server-side timing to isolate (pool queue vs. load generator).
 - [ ] Next: run v02 at higher VU levels (user picks), then pool-size experiments.
@@ -308,4 +308,7 @@ HTTP/1.1 keep-alive behaviour.
 - Never edit files under an already released `results/<tag>/`.
 - Before claiming an optimisation helped, compare at the same VU levels, same load source, and check steal %
   (a noisy neighbour can swing results; re-run if steal is high).
+- Near the CPU ceiling single runs are noisy (v02: 1200 VUs scored worse than 1250 after a load-generator stall).
+  Check `server_metrics.csv` for CPU dips with connections still open (= client/network stall) before trusting a
+  fail/pass at the edge; suggest a repeat run when it matters.
 - Run Python scripts with `python3 -I`. `scripts/server/*.sh` run as root on the droplet via `ssh bash -s`.
