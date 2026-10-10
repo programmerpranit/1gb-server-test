@@ -1,0 +1,6 @@
+Oct 10 15:00:03 1gb-test systemd[1]: Stopping bench-app.service - Benchmark app (node-express)...
+Oct 10 15:00:03 1gb-test systemd[1]: bench-app.service: Deactivated successfully.
+Oct 10 15:00:03 1gb-test systemd[1]: Stopped bench-app.service - Benchmark app (node-express).
+Oct 10 15:00:03 1gb-test systemd[1]: bench-app.service: Consumed 32.164s CPU time, 76.3M memory peak, 0B memory swap peak.
+Oct 10 15:00:07 1gb-test systemd[1]: Started bench-app.service - Benchmark app (node-express).
+Oct 10 15:00:08 1gb-test start.sh[48635]: node-express listening on :3000

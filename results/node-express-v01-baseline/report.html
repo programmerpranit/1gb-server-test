@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>node-express-v01-baseline report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: one reading column (max 1180px) with a measurement-sheet masthead; charts in a 2-up grid that stacks. */
+:root{
+  --bg:#f4f6f8; --surface:#ffffff; --ink:#15202b; --muted:#5b6876; --line:#d9e0e7; --accent:#2457c5;
+  --pass:#1d7a46; --pass-bg:#e3f3ea; --fail:#b42318; --fail-bg:#fde8e6;
+  --s-client:#2457c5; --s-p99:#7a8aa3; --s-srv:#0f8b8d; --s-conn:#c4760f; --s-db:#0f8b8d; --s-app:#8b5cf6;
+  --s-cpu:#15202b; --s-node:#2457c5; --s-pg:#c4760f; --s-mem:#0f8b8d; --band:rgba(36,87,197,.07);
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1419; --surface:#161d24; --ink:#e3e9ef; --muted:#93a1b0; --line:#2a3440; --accent:#7aa2ff;
+  --pass:#5cc98a; --pass-bg:#173326; --fail:#ff8a7a; --fail-bg:#3a1d1a;
+  --s-client:#7aa2ff; --s-p99:#8d9bb0; --s-srv:#3cc7c4; --s-conn:#f0a640; --s-db:#3cc7c4; --s-app:#b69bff;
+  --s-cpu:#e3e9ef; --s-node:#7aa2ff; --s-pg:#f0a640; --s-mem:#3cc7c4; --band:rgba(122,162,255,.09); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1419; --surface:#161d24; --ink:#e3e9ef; --muted:#93a1b0; --line:#2a3440; --accent:#7aa2ff;
+  --pass:#5cc98a; --pass-bg:#173326; --fail:#ff8a7a; --fail-bg:#3a1d1a;
+  --s-client:#7aa2ff; --s-p99:#8d9bb0; --s-srv:#3cc7c4; --s-conn:#f0a640; --s-db:#3cc7c4; --s-app:#b69bff;
+  --s-cpu:#e3e9ef; --s-node:#7aa2ff; --s-pg:#f0a640; --s-mem:#3cc7c4; --band:rgba(122,162,255,.09); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font:15px/1.6 var(--f-body); margin:0}
+.page{max-width:1180px; margin:0 auto; padding-inline:clamp(16px,4vw,40px); padding-block:28px 56px; display:grid; gap:40px}
+h1,h2,h3{font-family:var(--f-display); text-wrap:balance; line-height:1.15; margin:0}
+h1{font-size:clamp(28px,4.4vw,44px); font-weight:800; font-stretch:80%; letter-spacing:-.01em; overflow-wrap:anywhere}
+h2{font-size:22px; font-weight:700; font-stretch:85%; margin-bottom:14px}
+h3{font-size:17px; margin:18px 0 8px}
+p,li{max-width:76ch}
+code{font-family:var(--f-mono); font-size:.86em; background:color-mix(in srgb,var(--line) 55%,transparent); padding:1px 5px; border-radius:4px}
+section{min-width:0}
+section ul{padding-left:20px; margin:0; display:grid; gap:8px}
+section p{margin:0 0 10px}
+.eyebrow{font:500 12px/1.4 var(--f-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 8px}
+.meta{color:var(--muted); margin:10px 0 0; font-size:14px}
+.masthead{border-bottom:2px solid var(--ink); padding-bottom:22px}
+.verdict{display:grid; grid-template-columns:1.4fr repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin-top:22px}
+.verdict>div{background:var(--surface); padding:14px 16px; display:flex; flex-direction:column; gap:2px; min-width:0}
+.v-label{font:500 11px/1.3 var(--f-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.v-value{font:800 34px/1.1 var(--f-display); font-stretch:80%; color:var(--accent); font-variant-numeric:tabular-nums}
+.v-value.small{font-size:24px; color:var(--ink)}
+.v-sub{color:var(--muted); font-size:13px}
+.v-rule{font:13px/1.5 var(--f-mono)}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px}
+.kpi{background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:12px 14px; display:flex; flex-direction:column; gap:2px}
+.kpi span{font:500 11px/1.3 var(--f-mono); letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+.kpi b{font:700 24px/1.2 var(--f-display); font-stretch:85%; font-variant-numeric:tabular-nums}
+.kpi em{font-style:normal; color:var(--muted); font-size:12.5px}
+.note{color:var(--muted); font-size:13.5px}
+.table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:6px; background:var(--surface)}
+table{border-collapse:collapse; width:100%; font-size:13.5px}
+th,td{padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; vertical-align:top}
+th{font:500 11px/1.3 var(--f-mono); letter-spacing:.05em; text-transform:uppercase; color:var(--muted); background:color-mix(in srgb,var(--line) 30%,var(--surface))}
+tbody tr:last-child td{border-bottom:0}
+td.num{font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+td.strong{font-weight:500}
+td.over{color:var(--fail); font-weight:500}
+tr.best td{background:color-mix(in srgb,var(--pass-bg) 60%,transparent)}
+.sub{color:var(--muted)}
+.chip{display:inline-block; font:500 11px/1 var(--f-mono); letter-spacing:.05em; text-transform:uppercase; padding:4px 7px; border-radius:3px}
+.chip.pass{color:var(--pass); background:var(--pass-bg)}
+.chip.fail{color:var(--fail); background:var(--fail-bg)}
+.why{display:block; color:var(--muted); font-size:12px; margin-top:4px}
+.grid2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px}
+figure{margin:0; background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:12px 14px 10px; min-width:0}
+figcaption{font:600 14px/1.3 var(--f-body); margin-bottom:8px}
+figcaption span{display:block; font:400 12px/1.4 var(--f-mono); color:var(--muted)}
+.chart{position:relative; height:280px}
+.picker{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px}
+.picker button{font:500 13px/1 var(--f-mono); padding:8px 12px; border-radius:4px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer}
+.picker button[aria-selected="true"]{background:var(--accent); border-color:var(--accent); color:var(--surface)}
+.picker button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+footer{border-top:1px solid var(--line); padding-top:14px; color:var(--muted); font-size:13px}
+@media (max-width:760px){.verdict{grid-template-columns:1fr 1fr}.verdict>div:first-child{grid-column:1/-1}.grid2{grid-template-columns:1fr}.chart{height:240px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="masthead">
+  <p class="eyebrow">1 GB server test · protocol v2 · Ubuntu 24.04.5 LTS on a $6 droplet (1 vCPU / 1 GB)</p>
+  <h1>node-express-v01-baseline</h1>
+  <p class="meta">Express 5.3.0 · pg 8.23.1
+    · pool: none (new connection per request) · Node v24.21.0 · Postgres 16.15
+    · load from <code>do-blr1-loadgen-4vcpu-8gb</code> · app f7584f8</p>
+  <div class="verdict">
+    <div class="v-main"><span class="v-label">Capacity</span><span class="v-value">100 VUs</span>
+      <span class="v-sub">46.7 req/s steady</span></div>
+    <div><span class="v-label">First failing level</span><span class="v-value small">110 VUs</span></div>
+    <div><span class="v-label">Highest throughput seen</span><span class="v-value small">49.8 req/s</span></div>
+    <div><span class="v-label">Pass rule</span><span class="v-rule">p50 &lt; 500 · p95 &lt; 800 · p99 &lt; 1000 ms<br>errors &lt; 1 %</span></div>
+  </div>
+</header>
+
+<section class="kpis" aria-label="At capacity">
+  <div class="kpi"><span>Steady throughput</span><b>46.7</b><em>req/s · 2,804 req/min</em></div>
+  <div class="kpi"><span>Client p95 / p99</span><b>742 / 959</b><em>ms, steady phase</em></div>
+  <div class="kpi"><span>Server time p50</span><b>227.1</b><em>ms inside the app</em></div>
+  <div class="kpi"><span>Spent getting a connection</span><b>80 %</b><em>of server p50 (180.6 ms)</em></div>
+  <div class="kpi"><span>CPU (1 vCPU)</span><b>98 %</b><em>Node 32 · Postgres 61</em></div>
+  <div class="kpi"><span>Memory used</span><b>446 MB</b><em>of 961 MB · Node 108 · PG 70</em></div>
+</section>
+
+<section id="summary"><h2>Summary</h2><p><strong>Capacity: 100 VUs at 46.7 req/s (2,804 req/min)</strong>, steady p50 242 ms / p95 742 ms / p99 959 ms, 0 % errors. This is a <strong>marginal pass</strong>: p99 was only 4 % under the 1000 ms limit. The first failing level is <strong>110 VUs</strong>: 49.8 req/s, p95 852 ms (limit 800), still 0 % errors.</p>
+<ul><li><strong>The bottleneck is CPU, and most of it goes to opening a database connection for every request.</strong> CPU is at 98 % at both levels (Node about 32 %, Postgres about 61 %). Server timing shows where each request's time goes. At 100 VUs, server p50 is 227 ms: <strong>conn 181 ms</strong>, db 38 ms, app 0.5 ms. About 80 % of the time is spent getting a connection. Postgres starts a new backend process and checks a SCRAM password for every request, and all of it competes for the single vCPU.</li><li><strong>More users only means more queueing.</strong> Going from 100 to 110 VUs adds 10 % load but only 7 % throughput (46.7 → 49.8 req/s). Nearly all the extra wait is in <code>conn</code> (p50 181 → 280 ms, p95 597 → 666 ms). <code>db</code> grows a little (38 → 48 ms) and <code>app</code> stays under 1 ms. The ceiling is about 50 req/s.</li><li><strong>The network no longer distorts the numbers.</strong> The load generator sits in the same region and VPC. Time outside the app is 15 ms at p50 (25 ms at 110 VUs), and most of that is likely queueing on the saturated CPU before Node handles the request, not network. In protocol v1 the MacBook added about 40 ms of round trip plus Wi-Fi stalls.</li><li><strong>Memory is not a constraint.</strong> Peak 446 MB used (515 MB still available), Node about 108 MB, Postgres about 70 MB, no swap. No errors and no Postgres connection-limit failures: at 100–110 concurrent requests we stay just around <code>max_connections</code> (100) because each connection is short-lived.</li><li><strong>The load generator is not a factor.</strong> It peaked at 6–15 % CPU across 4 vCPUs, with k6 using about 96 MB.</li><li><strong>Next:</strong> <code>node-express-v02-pool</code>. A connection pool removes the per-request connect + auth that accounts for about 80 % of server time, so capacity should rise by an order of magnitude. <code>conn</code> will then measure time spent waiting for a pooled connection.</li></ul></section>
+
+<section id="levels">
+  <h2>Levels tested</h2>
+  <p class="note">Latency is the client-observed steady phase (60 s hold). Red values miss the pass rule. Server and conn come from the app's <code>Server-Timing</code> header, p50 / p95 in ms.</p>
+  <div class="table-wrap"><table class="levels">
+    <thead><tr><th>VUs</th><th>Result</th><th>req/s</th><th>p50</th><th>p95</th><th>p99</th><th>Errors %</th><th>Server</th><th>Conn</th><th>CPU % (Node / PG)</th><th>Used MB</th><th>Load gen CPU %</th></tr></thead>
+    <tbody><tr class=best><td class="num strong">100</td><td><span class="chip pass">Pass</span></td><td class="num">46.7</td><td class="num">242</td><td class="num">742</td><td class="num">959</td><td class="num">0.00</td><td class="num">227 / 694</td><td class="num">181 / 597</td><td class="num">98 <span class="sub">(32 / 61)</span></td><td class="num">446</td><td class="num">6</td></tr><tr><td class="num strong">110</td><td><span class="chip fail">Fail</span><span class="why">p95 852&gt;=800ms</span></td><td class="num">49.8</td><td class="num">362</td><td class="num over">852</td><td class="num">992</td><td class="num">0.00</td><td class="num">337 / 784</td><td class="num">280 / 666</td><td class="num">98 <span class="sub">(31 / 62)</span></td><td class="num">432</td><td class="num">15</td></tr></tbody>
+  </table></div>
+</section>
+
+<section id="across">
+  <h2>Across levels</h2>
+  <div class="grid2">
+    <figure><figcaption>Client latency vs. users <span>steady phase, ms; dashed = limits</span></figcaption><div class="chart"><canvas id="c-lat"></canvas></div></figure>
+    <figure><figcaption>Where server time goes <span>p50 per request, ms</span></figcaption><div class="chart"><canvas id="c-split"></canvas></div></figure>
+  </div>
+</section>
+
+<section id="timeline">
+  <h2>During the run</h2>
+  <div class="picker" role="tablist" aria-label="VU level"><button role="tab" type="button" data-vus="100" id="tab-100">100 VUs</button><button role="tab" type="button" data-vus="110" id="tab-110">110 VUs</button></div>
+  <p class="note">From k6's 2-second snapshots and the 1-second server samples, aligned on the k6 start. The shaded band is the 60 s ramp; the hold phase follows.</p>
+  <div class="grid2">
+    <figure><figcaption>Load <span>active users, req/s, failed req/s</span></figcaption><div class="chart"><canvas id="c-load"></canvas></div></figure>
+    <figure><figcaption>Latency over time <span>2 s windows, ms</span></figcaption><div class="chart"><canvas id="c-time"></canvas></div></figure>
+    <figure><figcaption>Target droplet <span>CPU % of 1 vCPU, memory used MB</span></figcaption><div class="chart"><canvas id="c-cpu"></canvas></div></figure>
+    <figure><figcaption>p95 by endpoint <span>client vs. server, ms, whole run</span></figcaption><div class="chart"><canvas id="c-ep"></canvas></div></figure>
+  </div>
+</section>
+
+<section id="changed"><h2>What changed vs. the previous tag</h2><p>First tag under protocol v2 (Server-Timing header + same-region load-generator droplet). Baseline for the node-express stack.</p></section>
+<section id="config"><h2>Full configuration</h2><ul><li>App: <code>apps/node-express</code> — Express 5.3.0, pg 8.23.1, plain SQL, no ORM (app code from commit <code>c9f7f4e</code>)</li><li>Runtime: Node v24.21.0, <code>NODE_ENV=production</code>, default heap, no flags</li><li>App processes/workers: 1 (systemd <code>bench-app</code>, no cluster/pm2)</li><li>DB connections: <strong>no pool</strong>. A new <code>pg.Client</code> per request, closed before responding</li><li>Writes: explicit <code>BEGIN/COMMIT</code> on the request's connection</li><li>Server timing: <code>Server-Timing: conn, db, app, total</code> on every response</li><li>Postgres: 16.15, defaults (<code>shared_buffers=128MB</code>, <code>max_connections=100</code>), localhost TCP, SCRAM auth</li><li>Swap: off</li><li>Reverse proxy: none (Express directly on :3000)</li><li>Load generator: DigitalOcean droplet in blr1, 4 vCPU / 8 GB shared (<code>do-blr1-loadgen-4vcpu-8gb</code>), k6 v2.3.0, traffic to the target's private IP 10.122.0.2 (≈ 2 ms RTT)</li></ul></section>
+<section id="observations"><h2>Observations</h2><ul><li>Per-endpoint server p95 is uniform: 502–888 ms at 100 VUs, 665–912 ms at 110 VUs. Every endpoint pays the same connection setup and waits in the same CPU queue. The write paths with 3–4 round trips (comment, like/unlike) are only slightly slower.</li><li><code>DELETE /posts/:id/like</code> has the highest p95 at 100 VUs (888 ms server). It is the rarest action (2 % of the mix), so its percentile rests on few samples.</li><li>Load average peaks at 4.0–4.7 on 1 vCPU. Steal time is 0.2 %, so no noisy-neighbour effect.</li><li><code>app_log_tail.txt</code> has no errors at either level.</li><li>The live dashboard surfaced a tooling bug during the 100-VU run: k6 does not exit while a browser keeps the dashboard open. The run completed after the dashboard connections were closed, and <code>run_test.sh</code> now closes them automatically once the report is exported. Results are unaffected.</li></ul></section>
+<section id="next"><h2>Next idea</h2><p><code>node-express-v02-pool</code>: <code>pg.Pool</code> with default settings (max 10). One change, with Server-Timing kept.</p></section>
+
+<footer>
+  <p>Generated 2026-10-10 15:09 UTC by <code>scripts/report_html.py</code> from <code>results/node-express-v01-baseline/</code>. Raw data per level: <code>summary.json</code>, <code>k6_summary.json</code>, <code>k6_report.html</code> (full k6 dashboard), <code>server_metrics.csv</code>, <code>loadgen_metrics.csv</code>.</p>
+</footer>
+</div>
+<script type="application/json" id="report-data">{"levels":[{"vus":100,"pass":true,"fail_reasons":[],"rps":46.733333333333334,"rpm":2804.0,"total":4368,"err":0,"lat":{"avg":290.6346954379461,"med":242.4277435,"p90":548.9155336000001,"p95":742.37624735,"p99":958.8126370699975,"max":1140.532366},"srv":{"total":{"med":227.14999999999998,"p95":693.7499999999999,"p99":882.8699999999998,"max":1097.2},"conn":{"med":180.6,"p95":596.6099999999998,"p99":749.7819999999998,"max":867.4},"db":{"med":38.3,"p95":112.08499999999998,"p99":178.3349999999989,"max":329},"app":{"med":0.5,"p95":6.7,"p99":10.49399999999996,"max":19.4}},"outside":{"med":15.277743500000014,"p(95)":48.626247350000085},"cpu":97.66000000000001,"app_cpu":31.939999999999998,"pg_cpu":60.87166666666665,"steal":0.23333333333333334,"mem_used":446.0,"app_mb":108.0,"pg_mb":70.0,"lg_cpu":6.0,"endpoints":{"GET /users/:id/posts":[609.19948655,563.8899999999998],"POST /posts/:id/like":[636.68847465,594.99],"GET /me/posts":[640.3277235999998,590.9399999999998],"POST /posts/:id/comments":[671.4376115999995,608.6399999999993],"GET /posts":[616.1402501999997,576.2799999999995],"DELETE /posts/:id/like":[978.76347085,888.415],"POST /posts":[555.826179,502.26000000000005],"GET /posts/:id":[688.7573793999992,636.25]},"ramp_s":60,"hold_s":60,"k6":{"start_ms":1791644000730,"t":[2.0,4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0,20.0,22.0,24.0,26.0,28.0,30.0,32.0,34.0,36.0,38.0,40.0,42.0,44.0,46.0,48.0,50.0,52.0,54.0,56.0,58.0,60.0,62.0,64.0,66.0,68.0,70.0,72.0,74.0,76.0,78.0,80.0,82.0,84.0,86.0,88.0,90.0,92.0,94.0,96.0,98.0,100.0,102.0,104.0,106.0,108.0,110.0,112.0,114.0,116.0,118.0,120.0,122.0],"vus":[1,4,8,11,14,18,21,24,28,31,34,38,41,44,48,51,54,58,61,64,68,71,74,78,81,84,88,91,94,98,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,64],"rps":[2,3.5,5,5.5,9,11.5,12.5,16,14,19.5,18.5,22,17.5,25,26,24,28,30.5,33.5,34,37,38.5,33.5,36.5,43,41,43.5,45.5,41.5,48,53,49.5,51.5,49,44.5,48,51,45.5,38,49.5,45,52.5,46.5,46.5,48.5,49.5,43,49,50,41,36.5,45,46,43.5,42.5,53,50,38.5,52.5,52,8],"failed_rps":[0,0.0,0,0.0,0,0.0,0.0,0,0,0.0,0.0,0,0.0,0,0,0,0,0.0,0.0,0,0,0.0,0.0,0.0,0,0,0.0,0.0,0.0,0,0,0.0,0.0,0,0.0,0,0,0.0,0,0.0,0,0.0,0.0,0.0,0.0,0.0,0,0,0,0,0.0,0,0,0.0,0.0,0,0,0.0,0.0,0,0],"p50":[29.348,28.311,27.911,26.601,33.737,27.342,21.965,26.709,29.627,36.924,36.06,31.634,29.987,31.532,35.728,32.007,38.525,57.54,68.646,76.886,125.91,63.795,57.011,151.96,126.39,82.623,186.31,92.481,552.63,205.06,250.54,133.63,150.29,157.12,286.83,252.16,387.35,308.36,270.13,746.23,217.25,258.29,103.84,111.25,315.63,112.17,160.94,362.28,261.56,231.66,831.48,585.02,488.56,422.65,180.88,315.18,99.714,467.63,414.6,154.2,97.145],"p95":[48.578,33.89,49.117,39.391,90.514,42.405,34.7,46.655,58.777,91.733,95.611,109.77,54.317,72.884,66.327,107.08,119.08,181.55,134.33,195.67,201.14,175.38,150.85,255.39,329.11,196.78,482.41,195.55,663.79,522.58,423.87,273.62,239.36,305.56,474.71,370.07,564.17,427.47,539,946.05,320.98,330.37,221.92,212.66,513.93,154.92,417.46,493.32,355.86,314.23,978.77,1065,603.64,515.71,456.81,511.43,247.3,721.26,731.34,240.07,134.99],"p99":[51.181,33.895,50.717,39.809,94.818,47.054,36.769,51.778,65.903,97.282,101,114.67,66.884,78.524,69.682,115.9,130.15,193.03,143.37,241.88,237.68,188.44,170.64,336.44,367.47,215.31,516.31,214.95,725.63,553.47,440.35,317.61,279.09,312.59,492.87,394.88,603.2,476.18,634.09,1049.2,344.58,363.31,236.26,228.52,547.18,162.65,436.31,509.64,371.81,394.43,1019.2,1123.3,645.12,540.12,512.88,531.6,278.53,777.88,791.64,260.43,141.2],"srv_p95":[45.989,31.82,46.389,37.8,87.255,41.03,31.419,43.86,53.559,89.62,90.479,106.56,53.099,70.77,64.125,105.6,116.3,179.3,132.69,188.58,194.81,169.74,147.59,250.36,303.5,187.14,445.04,186.2,630.45,477.37,388.32,258.45,224.23,286.14,446.3,346.57,542.88,403.45,519.07,883.08,308.22,316.42,211.57,201.53,483.29,151.2,399.02,470.92,333.91,298.32,904.71,985.16,568.01,474.9,413.34,482.82,244.02,692.16,679.7,226.7,131.92],"conn_p95":[19.96,22.97,24.265,27.7,61.284,28.619,24.419,31.99,37.964,62.79,67.579,78.39,36.059,54.029,50.04,79.3,91.275,133.4,95.04,151.22,164.68,139.62,118.4,209.23,254.57,148.63,365.86,144.25,544.67,417.42,324.72,216.92,192.14,240.97,380.76,278.62,448.9,342.45,439.82,755.26,260.2,256.83,169.63,165.67,405.3,112.26,330.82,369.99,282.9,246.46,755.92,810.21,491.58,402.76,373.06,382.55,192.12,569.5,581.28,179.15,103.27],"db_p95":[26.39,7.85,14.224,9.4,28.334,10.84,8.0199,14.145,14.514,22.63,25.819,24.805,20.229,18.974,15.135,22.619,26.049,41.2,37.709,36.819,41.174,31.72,41.22,72.399,86.875,45.705,96.53,45.75,129.29,71.725,99.825,51.489,62.869,54.084,110.43,86.324,142.11,79.35,111.95,171.7,65.909,91.179,50.219,55.979,116.37,43.459,74.95,114.25,71.409,62.185,237.05,227.85,108.17,119.37,69.079,110.97,52.114,147.46,124.22,60.289,40.974]},"server":{"t":[-3.8,-2.8,-1.8,-0.8,0.2,1.2,2.2,3.2,4.2,5.2,6.2,7.2,8.2,9.2,10.2,11.2,12.2,13.2,14.2,15.2,16.2,17.2,18.2,19.2,20.2,21.2,22.2,23.2,24.2,25.2,26.2,27.2,28.2,29.2,30.2,31.2,32.2,33.2,34.2,35.2,36.2,37.2,38.2,39.2,40.2,41.2,42.2,43.2,44.2,45.2,46.2,47.2,48.2,49.2,50.2,51.2,52.2,53.2,54.2,55.2,56.2,57.2,58.2,59.2,60.2,61.2,62.2,63.2,64.2,65.2,66.2,67.2,68.2,69.2,70.2,71.2,72.2,73.2,74.2,75.2,76.2,77.2,78.2,79.2,80.2,81.2,82.2,83.2,84.2,85.2,86.2,87.2,88.2,89.2,90.2,91.2,92.2,93.2,94.2,95.2,96.2,97.2,98.2,99.2,100.2,101.2,102.2,103.2,104.2,105.2,106.2,107.2,108.2,109.2,110.2,111.2,112.2,113.2,114.2,115.2,116.2,117.2,118.2,119.2,120.2,121.2,122.2,123.2,124.2,125.2,126.2,127.2,128.2,129.2,130.2,131.2,132.2,133.2,134.2,135.2],"cpu":[1.0,2.0,2.0,1.0,7.0,4.0,10.2,14.7,5.1,21.4,11.1,14.9,21.6,33.7,24.0,38.4,30.3,24.2,40.8,40.6,34.3,33.3,47.0,40.4,42.0,43.0,48.0,55.6,35.7,41.4,51.5,49.0,50.0,67.0,55.0,56.6,68.7,51.5,70.7,67.6,81.6,53.5,80.2,77.6,95.0,87.9,74.0,70.7,78.2,77.3,89.1,95.1,80.8,82.0,87.9,71.7,100.0,81.2,94.9,90.9,100.0,100.0,100.0,93.0,100.0,100.0,100.0,84.0,100.0,92.9,95.0,91.0,100.0,100.0,100.0,100.0,100.0,92.0,93.9,99.0,99.0,100.0,100.0,94.9,97.0,100.0,100.0,92.9,92.1,94.9,92.0,88.1,100.0,98.0,97.0,93.9,97.0,100.0,100.0,100.0,100.0,100.0,100.0,91.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,96.0,100.0,100.0,96.0,96.0,100.0,100.0,100.0,100.0,100.0,96.0,43.4,3.0,2.0,4.0,5.0,2.0,5.1,2.0,2.0,3.0,3.0,3.0,3.0,4.0,1.0,2.0],"app_cpu":[0.0,0.0,0.0,0.0,2.7,1.1,4.4,5.5,2.7,9.9,4.5,5.5,9.2,13.6,9.4,15.4,13.4,9.5,15.6,16.2,13.4,12.6,18.5,15.2,15.5,16.3,17.4,22.9,14.6,15.4,18.6,18.9,18.0,26.0,19.9,21.5,25.0,22.1,25.4,24.3,32.7,18.5,27.9,28.6,31.8,31.2,25.5,25.2,27.1,27.4,31.9,36.3,26.1,27.9,31.2,25.0,35.4,27.0,30.7,30.5,33.1,31.4,32.7,31.5,30.9,33.0,34.7,27.4,33.8,30.4,33.9,28.7,37.5,30.4,32.2,34.9,32.3,29.0,32.9,31.3,32.8,35.8,34.5,29.2,33.5,33.2,31.7,30.3,33.1,31.3,30.2,29.0,35.7,30.5,32.3,31.4,31.9,36.0,32.6,31.9,34.0,32.6,32.3,32.6,31.3,32.5,26.1,33.3,29.3,30.1,31.9,31.2,32.6,34.8,30.2,31.7,30.3,32.0,34.7,30.5,27.9,31.2,32.4,30.7,15.7,0.0,0.0,0.2,1.2,1.6,1.2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"pg_cpu":[0.1,0.1,0.1,0.1,3.1,1.4,4.1,5.9,1.5,11.0,5.3,6.5,11.8,15.9,12.3,20.2,14.5,13.5,22.6,22.0,18.0,18.1,26.3,22.1,23.8,23.3,25.6,29.6,19.7,23.0,30.6,28.4,29.0,37.2,32.5,31.7,40.3,27.4,41.7,40.1,46.4,31.4,48.2,46.2,58.9,51.7,47.4,41.1,47.2,46.6,52.4,55.8,48.7,50.1,54.2,43.4,60.1,50.9,59.6,55.7,63.6,63.2,62.0,58.8,64.3,62.7,62.0,52.8,62.1,59.5,57.1,57.9,59.2,64.5,62.1,61.7,61.9,59.3,56.3,62.8,62.7,58.1,57.4,61.6,58.9,62.3,65.1,57.0,55.3,60.1,56.8,54.4,61.0,61.9,60.0,59.1,60.1,58.8,63.6,62.5,61.7,62.8,63.2,55.1,60.4,59.5,66.5,60.6,63.3,65.0,62.6,62.6,62.8,55.1,64.6,64.5,61.0,60.4,61.0,62.6,65.2,64.2,62.5,62.2,24.8,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.1,0.0,0.0,0.0,0.0],"mem_used":[340.0,340.0,340.0,340.0,329.0,330.0,330.0,335.0,333.0,337.0,339.0,337.0,337.0,342.0,338.0,343.0,339.0,340.0,339.0,343.0,341.0,341.0,350.0,342.0,343.0,352.0,344.0,345.0,346.0,348.0,350.0,352.0,352.0,353.0,358.0,362.0,355.0,362.0,363.0,363.0,373.0,372.0,374.0,384.0,382.0,380.0,389.0,381.0,388.0,391.0,396.0,400.0,384.0,389.0,385.0,390.0,404.0,393.0,387.0,396.0,403.0,412.0,393.0,405.0,402.0,398.0,397.0,395.0,405.0,392.0,409.0,397.0,417.0,401.0,400.0,408.0,413.0,396.0,418.0,399.0,403.0,420.0,426.0,401.0,400.0,407.0,409.0,408.0,416.0,406.0,409.0,411.0,415.0,406.0,399.0,405.0,397.0,419.0,417.0,409.0,420.0,412.0,398.0,420.0,438.0,446.0,421.0,423.0,421.0,414.0,419.0,418.0,407.0,412.0,412.0,406.0,404.0,417.0,426.0,435.0,420.0,411.0,409.0,415.0,402.0,402.0,402.0,402.0,402.0,402.0,402.0,402.0,402.0,402.0,402.0,405.0,405.0,405.0,405.0,405.0],"conns":[0.0,0.0,0.0,0.0,2.0,3.0,5.0,7.0,8.0,10.0,11.0,12.0,14.0,16.0,17.0,19.0,21.0,22.0,24.0,26.0,27.0,29.0,31.0,32.0,34.0,36.0,37.0,39.0,41.0,42.0,44.0,46.0,47.0,49.0,51.0,52.0,54.0,56.0,57.0,59.0,61.0,62.0,64.0,66.0,67.0,69.0,71.0,72.0,74.0,76.0,78.0,79.0,81.0,82.0,84.0,86.0,88.0,89.0,91.0,93.0,94.0,96.0,97.0,99.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,96.0,66.0,23.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]},"loadgen":{"t":[0.2,1.2,2.2,3.2,4.2,5.2,6.2,7.2,8.2,9.2,10.2,11.2,12.2,13.2,14.2,15.2,16.2,17.2,18.2,19.2,20.2,21.2,22.2,23.2,24.2,25.2,26.2,27.2,28.2,29.2,30.2,31.2,32.2,33.2,34.2,35.2,36.2,37.2,38.2,39.2,40.2,41.2,42.2,43.2,44.2,45.2,46.2,47.2,48.2,49.2,50.2,51.2,52.2,53.2,54.2,55.2,56.2,57.2,58.2,59.2,60.2,61.2,62.2,63.2,64.2,65.2,66.2,67.2,68.2,69.2,70.2,71.2,72.2,73.2,74.2,75.2,76.2,77.2,78.2,79.2,80.2,81.2,82.2,83.2,84.2,85.2,86.2,87.2,88.2,89.2,90.2,91.2,92.2,93.2,94.2,95.2,96.2,97.2,98.2,99.2,100.2,101.2,102.2,103.2,104.2,105.2,106.2,107.2,108.2,109.2,110.2,111.2,112.2,113.2,114.2,115.2,116.2,117.2,118.2,119.2,120.2,121.2,122.2,123.2,124.2,125.2,126.2,127.2,128.2,129.2,130.2,131.2,132.2,133.2,134.2],"cpu":[6.0,0.5,1.5,0.3,0.8,0.8,0.3,1.0,0.5,0.8,0.8,1.2,1.0,1.0,1.3,2.3,1.5,0.8,1.0,1.3,1.3,1.0,1.0,2.8,0.8,1.3,1.0,1.3,1.5,1.0,1.8,2.8,1.3,1.3,2.0,1.3,2.8,1.3,2.3,1.8,1.5,1.5,2.5,1.5,1.8,1.5,3.0,2.0,2.3,2.3,1.8,1.8,2.3,3.5,2.3,2.5,2.0,1.3,1.8,1.5,3.5,2.0,2.0,1.5,2.0,2.8,2.3,3.8,2.3,2.3,2.3,2.3,2.3,1.8,2.8,3.0,1.8,1.5,1.5,2.3,2.0,2.0,3.5,2.3,2.5,2.5,2.3,2.0,2.0,2.5,3.8,1.8,2.3,1.8,2.3,1.8,3.8,4.3,2.0,3.2,3.5,2.5,3.0,2.0,2.5,4.8,3.0,1.8,2.8,2.3,2.8,3.0,2.5,4.8,2.3,2.0,3.0,3.0,2.5,2.5,1.8,0.5,0.8,1.2,0.0,1.5,0.3,0.2,0.8,0.3,0.2,0.5,0.5,0.0,0.5]},"meta":{"date":"2026-10-10T14:58:04Z","git_sha":"f7584f8","loadgen":"do-blr1-loadgen-4vcpu-8gb","k6_version":"k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)","stack":"node-express"},"bench":{"language":"JavaScript","runtime":"node","framework":"Express 5.3.0","db":"postgres","db_driver":"pg 8.23.1","db_pool":"none (new connection per request)","workers":1,"change":"baseline: no pool, new connection per request, Server-Timing header"},"env":{"app":"node-express","kernel":"6.8.0-142-generic","os":"Ubuntu 24.04.5 LTS","nproc":"1","mem_total_mb":"961","node":"v24.21.0","python":"3.12.3","go":"","postgres":"16.15","swap_mb":"0","shared_buffers":"128MB","max_connections":"100","mem_avail_mb_idle":"630"},"criteria":{"p50":500.0,"p95":800.0,"p99":1000.0,"error_pct":1.0}},{"vus":110,"pass":false,"fail_reasons":["p95 852>=800ms"],"rps":49.766666666666666,"rpm":2986.0,"total":4643,"err":0,"lat":{"avg":381.565132896517,"med":362.32892000000004,"p90":704.636211,"p95":852.2391405000001,"p99":991.60760555,"max":1096.184362},"srv":{"total":{"med":337.20000000000005,"p95":783.8,"p99":913.9550000000002,"max":1051.3},"conn":{"med":280.3,"p95":665.575,"p99":779.6350000000001,"max":908.3},"db":{"med":47.6,"p95":133.4,"p99":205.59000000000006,"max":289},"app":{"med":0.5,"p95":6.875,"p99":11.93000000000002,"max":20.8}},"outside":{"med":25.128919999999994,"p(95)":68.43914050000012},"cpu":98.42,"app_cpu":31.481666666666666,"pg_cpu":62.13000000000001,"steal":0.21666666666666667,"mem_used":432.0,"app_mb":104.0,"pg_mb":64.0,"lg_cpu":15.0,"endpoints":{"GET /posts/:id":[834.3270527999999,780.0599999999998],"GET /users/:id/posts":[721.1053961999999,664.7099999999999],"POST /posts":[768.8630188,718.925],"POST /posts/:id/like":[904.45332175,843.8249999999999],"GET /me/posts":[755.6729727999998,709.84],"DELETE /posts/:id/like":[847.0207192999995,755.5299999999995],"GET /posts":[812.2817742000001,748.4800000000001],"POST /posts/:id/comments":[973.7976704999999,912.0799999999999]},"ramp_s":60,"hold_s":60,"k6":{"start_ms":1791644414624,"t":[2.0,4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0,20.0,22.0,24.0,26.0,28.0,30.0,32.0,34.0,36.0,38.0,40.0,42.0,44.0,46.0,48.0,50.0,52.0,54.0,56.0,58.0,60.0,62.0,64.0,66.0,68.0,70.0,72.0,74.0,76.0,78.0,80.0,82.0,84.0,86.0,88.0,90.0,92.0,94.0,96.0,98.0,100.0,102.0,104.0,106.0,108.0,110.0,112.0,114.0,116.0,118.0,120.0,122.0],"vus":[1,5,8,12,16,19,23,27,30,34,38,41,45,49,52,56,62,63,67,71,74,78,82,85,89,95,96,100,106,109,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,110,74],"rps":[2,3.5,5,6.5,9,11.5,13,14.5,17,20.5,16.5,24,27.5,23,30.5,29,34,34.5,32.5,40,38.5,40,34,42,45.5,44,48,35.5,43,40,47.5,36.5,61.5,56,51.5,47,59,44.5,54,47,43,57,51.5,49.5,50,55.5,57.5,54.5,42,39.5,54,48.5,46,40.5,52.5,47,58.5,43.5,53.5,49.5,19],"failed_rps":[0,0.0,0,0.0,0,0.0,0,0.0,0,0.0,0.0,0,0.0,0,0.0,0,0,0.0,0.0,0,0.0,0,0,0,0.0,0,0,0.0,0,0,0.0,0.0,0.0,0,0.0,0,0,0.0,0,0,0,0,0.0,0.0,0,0.0,0.0,0.0,0,0.0,0,0.0,0,0.0,0.0,0,0.0,0.0,0.0,0.0,0],"p50":[32.283,30.723,33.706,25.792,27.682,27.978,29.06,33.145,34.886,51.634,37.111,42.912,63.955,42.228,37.849,50.198,106.23,148.32,80.242,96.638,63.95,69.299,58.053,391.13,304.82,210.78,292.65,511,600.39,750.59,656.07,561.39,730.24,233.49,207.78,204.85,319.16,215.58,589.98,155.98,441.61,492.76,143.41,551.37,242.07,367.06,379.03,119.89,320.58,903.66,598,281.92,499.33,813.89,150.68,385.48,203.46,363.28,488.95,159.29,313.27],"p95":[52.933,48.927,51.725,43.685,85.557,45.297,47.126,94.999,81.47,102.84,94.185,157.1,132.51,99.6,115.16,215.49,318.49,285.54,203.08,189.65,266.9,115.71,269.51,505.73,506.9,402.92,447.98,628.3,774.08,1053.1,979.86,757.93,1001,451.92,404.64,325.38,461.76,389.4,714.66,344.13,796.06,747.28,319.81,721.1,557.02,437.51,428.35,265.23,413,1062.6,911.33,346.89,620.6,979.36,785.48,474.56,529.24,507.95,550.78,369.44,363.76],"p99":[55.643,52.224,53.55,45.209,87.804,47.553,50.548,97.023,90.498,125.65,105.78,166.47,149.09,115.33,119.66,229.74,360.91,312.21,216.47,207.66,283.19,134.69,293.1,542.38,572.13,440.51,462.56,661.03,830.16,1090.7,1037.6,870.99,1036,487.51,445.49,335.42,491.67,419.81,780.9,355.71,839.98,800.46,358.52,767.22,612.87,467.83,456.54,302.56,438.26,1077.3,1011.2,400.41,638.34,1013.2,912.33,500.12,550.33,536.08,578.85,389.97,372.35],"srv_p95":[51.23,46.859,49.964,40.139,83.77,43.4,44.55,89.7,77.889,99.5,92.559,152.18,129.13,97.625,112.2,200.33,294.85,269.86,186.62,180.26,254.5,114.18,260.32,468.9,476.4,377.72,420.7,588.45,730.67,999.45,897.74,712.53,928.55,429.11,388.97,306.6,426.51,355.41,658.57,325.87,747.47,698.94,298.2,680.63,513.4,412.85,399.7,255.42,388.84,998.22,841.25,337.91,586.22,915.4,730.71,433.41,492.09,463.75,523.04,341.66,344.38],"conn_p95":[21.19,22.85,36.98,30.119,64.779,31.51,31.675,65.619,59.079,80.1,70.479,113.14,109.13,77.075,89.9,163.31,251.3,216.17,148.6,141.46,189.7,94.28,210.4,366.08,412.3,316.71,361.12,484.04,609.75,819.44,805.87,606.69,786.33,337.72,336.75,242.14,357.08,303.62,543.59,283.16,631.92,584.04,256.07,595.41,404.82,335.65,351.35,204.22,330.47,822.53,732.12,267.33,468.43,763.2,607.87,359.09,424.16,368.08,444.81,275.04,294.52],"db_p95":[31.909,11.12,11.469,9.86,19.474,10.99,8.975,29.519,18.205,22.9,19.599,36.385,30.58,23.625,22.4,39.879,65.294,68.879,43.879,34.275,55.5,35.205,48.654,127.31,102.4,75.834,75.475,147.55,159.07,264.83,201.75,157.88,192.98,103.43,81.159,70.734,95.889,85.659,183.74,50.544,149.3,131.41,70.919,129.08,123.16,92.55,87.399,52.719,77.885,227.53,134.69,93.32,134.64,189.9,198.55,112.76,77.659,124.15,132.97,72.509,68.924]},"server":{"t":[-4.7,-3.7,-2.7,-1.7,-0.7,0.3,1.3,2.3,3.3,4.3,5.3,6.3,7.3,8.3,9.3,10.3,11.3,12.3,13.3,14.3,15.3,16.3,17.3,18.3,19.3,20.3,21.3,22.3,23.3,24.3,25.3,26.3,27.3,28.3,29.3,30.3,31.3,32.3,33.3,34.3,35.3,36.3,37.3,38.3,39.3,40.3,41.3,42.3,43.3,44.3,45.3,46.3,47.3,48.3,49.3,50.3,51.3,52.3,53.3,54.3,55.3,56.3,57.3,58.3,59.3,60.3,61.3,62.3,63.3,64.3,65.3,66.3,67.3,68.3,69.3,70.3,71.3,72.3,73.3,74.3,75.3,76.3,77.3,78.3,79.3,80.3,81.3,82.3,83.3,84.3,85.3,86.3,87.3,88.3,89.3,90.3,91.3,92.3,93.3,94.3,95.3,96.3,97.3,98.3,99.3,100.3,101.3,102.3,103.3,104.3,105.3,106.3,107.3,108.3,109.3,110.3,111.3,112.3,113.3,114.3,115.3,116.3,117.3,118.3,119.3,120.3,121.3,122.3,123.3,124.3,125.3,126.3,127.3,128.3,129.3,130.3,131.3,132.3,133.3,134.3],"cpu":[1.0,4.0,3.0,1.0,5.0,9.1,9.1,6.9,19.4,14.9,23.2,14.3,22.2,24.0,22.0,32.3,31.7,33.7,37.4,25.5,69.4,42.0,45.5,43.0,53.5,40.0,58.6,60.0,40.8,79.2,65.3,53.1,61.2,67.3,57.6,65.3,90.9,80.0,61.6,100.0,53.1,76.2,84.0,92.9,76.0,80.0,74.7,82.0,89.0,75.8,93.1,100.0,100.0,100.0,100.0,93.1,93.0,100.0,88.9,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,98.0,96.0,99.0,100.0,94.0,100.0,100.0,93.9,100.0,100.0,100.0,99.0,83.7,100.0,100.0,100.0,100.0,100.0,97.1,100.0,100.0,100.0,88.9,98.0,100.0,100.0,100.0,100.0,99.0,92.9,100.0,100.0,100.0,100.0,100.0,98.0,100.0,100.0,100.0,100.0,100.0,100.0,94.9,87.0,100.0,100.0,100.0,95.0,100.0,100.0,100.0,100.0,92.8,98.0,21.2,4.0,2.0,3.0,4.0,2.0,3.0,3.0,2.0,4.0,4.0,1.0,3.0,3.0,2.0],"app_cpu":[0.0,0.0,0.0,0.0,1.3,3.2,4.1,2.4,9.3,5.8,11.1,6.2,8.7,9.1,8.6,12.3,12.5,13.7,14.6,9.0,29.9,16.9,16.7,16.8,22.4,14.3,22.0,22.7,15.8,30.6,24.3,18.2,23.9,25.9,22.4,27.0,36.5,27.5,24.4,33.6,19.8,26.4,29.7,33.6,25.5,30.3,26.3,31.0,30.4,26.4,33.8,32.7,34.4,33.5,35.2,30.1,32.5,32.8,32.6,34.7,30.7,30.7,31.7,33.7,29.0,31.5,32.4,32.3,31.5,30.2,30.0,33.3,28.6,32.5,33.3,32.0,33.2,29.8,32.1,31.1,38.0,31.5,29.1,27.9,34.2,34.6,30.7,31.9,31.5,32.5,33.7,31.3,28.4,26.7,34.4,32.7,34.5,30.3,30.7,33.3,30.8,31.2,32.7,29.1,31.1,28.0,33.2,31.9,34.3,29.9,37.2,28.2,29.8,27.7,29.8,30.5,32.6,31.1,32.8,31.1,32.8,30.3,30.2,28.5,32.4,6.8,0.0,0.0,1.3,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"pg_cpu":[0.1,0.1,0.1,0.1,1.1,4.0,3.7,1.8,8.6,6.6,9.7,7.8,10.9,12.2,11.7,17.2,15.7,18.4,19.8,13.2,36.8,22.3,25.4,24.1,27.5,22.8,34.2,33.6,22.7,46.0,37.5,31.2,35.3,38.1,32.5,36.7,49.2,48.9,35.4,61.3,30.3,46.0,50.3,55.5,46.2,47.2,44.8,47.7,54.4,46.6,55.0,61.7,62.1,60.8,59.6,59.6,56.0,62.8,53.2,60.6,63.1,64.6,62.3,60.4,65.4,61.3,62.8,61.0,61.7,65.6,64.2,61.0,63.8,61.6,61.8,59.0,62.5,65.4,59.1,64.3,57.2,64.6,64.5,51.0,62.6,60.3,62.5,64.2,63.3,61.8,61.9,63.7,67.1,57.4,59.6,64.0,60.7,64.6,65.9,61.9,57.3,65.3,61.4,63.4,63.4,65.6,59.4,64.1,60.4,64.8,58.9,64.5,63.8,62.7,52.9,65.4,62.6,63.9,58.7,62.8,61.7,65.8,63.5,58.9,62.7,12.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.1,0.0,0.0,0.0,0.0],"mem_used":[340.0,340.0,340.0,340.0,332.0,330.0,334.0,330.0,333.0,336.0,338.0,335.0,343.0,336.0,336.0,336.0,337.0,337.0,339.0,339.0,342.0,346.0,345.0,351.0,365.0,354.0,350.0,350.0,354.0,359.0,354.0,353.0,354.0,355.0,361.0,366.0,375.0,371.0,374.0,378.0,381.0,375.0,383.0,379.0,377.0,387.0,378.0,387.0,380.0,382.0,397.0,393.0,397.0,393.0,400.0,386.0,392.0,393.0,383.0,409.0,413.0,410.0,414.0,430.0,414.0,407.0,414.0,415.0,426.0,409.0,398.0,416.0,393.0,409.0,394.0,397.0,413.0,406.0,393.0,397.0,423.0,432.0,393.0,397.0,406.0,426.0,424.0,408.0,400.0,413.0,416.0,432.0,412.0,394.0,409.0,410.0,415.0,417.0,406.0,406.0,408.0,408.0,429.0,429.0,426.0,417.0,418.0,411.0,418.0,419.0,430.0,432.0,429.0,410.0,412.0,412.0,412.0,404.0,407.0,417.0,425.0,427.0,417.0,402.0,400.0,400.0,400.0,400.0,401.0,401.0,401.0,401.0,401.0,401.0,401.0,404.0,404.0,404.0,404.0,404.0],"conns":[0.0,0.0,0.0,0.0,1.0,3.0,5.0,6.0,8.0,10.0,11.0,13.0,15.0,16.0,18.0,20.0,22.0,24.0,26.0,27.0,29.0,31.0,33.0,35.0,37.0,38.0,40.0,42.0,44.0,46.0,48.0,49.0,51.0,53.0,55.0,57.0,59.0,60.0,62.0,64.0,66.0,68.0,70.0,72.0,73.0,75.0,77.0,79.0,81.0,82.0,84.0,86.0,88.0,90.0,92.0,93.0,95.0,97.0,99.0,101.0,103.0,105.0,106.0,108.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,110.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]},"loadgen":{"t":[0.3,1.3,2.3,3.3,4.3,5.3,6.3,7.3,8.3,9.3,10.3,11.3,12.3,13.3,14.3,15.3,16.3,17.3,18.3,19.3,20.3,21.3,22.3,23.3,24.3,25.3,26.3,27.3,28.3,29.3,30.3,31.3,32.3,33.3,34.3,35.3,36.3,37.3,38.3,39.3,40.3,41.3,42.3,43.3,44.3,45.3,46.3,47.3,48.3,49.3,50.3,51.3,52.3,53.3,54.3,55.3,56.3,57.3,58.3,59.3,60.3,61.3,62.3,63.3,64.3,65.3,66.3,67.3,68.3,69.3,70.3,71.3,72.3,73.3,74.3,75.3,76.3,77.3,78.3,79.3,80.3,81.3,82.3,83.3,84.3,85.3,86.3,87.3,88.3,89.3,90.3,91.3,92.3,93.3,94.3,95.3,96.3,97.3,98.3,99.3,100.3,101.3,102.3,103.3,104.3,105.3,106.3,107.3,108.3,109.3,110.3,111.3,112.3,113.3,114.3,115.3,116.3,117.3,118.3,119.3,120.3,121.3,122.3,123.3,124.3,125.3,126.3,127.3,128.3,129.3,130.3,131.3,132.3,133.3,134.3],"cpu":[15.0,1.0,0.8,0.8,1.0,0.8,1.3,0.5,1.5,1.3,1.0,2.0,1.0,1.0,1.3,2.3,1.5,2.0,2.0,1.3,2.0,1.0,1.8,1.8,2.5,2.0,1.5,1.8,1.8,2.0,1.8,3.5,2.0,2.0,2.0,2.0,1.3,2.8,3.3,2.5,2.5,2.5,2.3,3.5,3.0,2.5,3.2,3.5,3.0,4.0,3.0,2.8,4.2,3.5,2.3,2.0,2.8,4.3,5.2,2.5,2.3,2.5,2.8,2.0,2.5,4.5,2.3,2.8,3.3,3.2,2.3,2.3,6.0,3.0,3.0,3.0,2.8,2.5,3.0,2.8,3.8,2.5,2.5,2.8,2.5,3.3,2.3,4.5,2.8,2.3,2.5,3.0,2.5,3.0,4.3,2.5,2.8,2.5,2.0,2.3,2.3,2.5,4.8,3.0,2.0,2.5,3.5,2.8,3.0,3.0,3.8,3.5,3.8,1.8,3.0,2.3,2.3,3.3,4.3,2.3,2.3,1.3,0.8,2.3,1.5,0.5,0.5,0.0,0.5,0.3,0.0,0.7,0.7,0.0,0.5]},"meta":{"date":"2026-10-10T15:02:32Z","git_sha":"b165f7f","loadgen":"do-blr1-loadgen-4vcpu-8gb","k6_version":"k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)","stack":"node-express"},"bench":{"language":"JavaScript","runtime":"node","framework":"Express 5.3.0","db":"postgres","db_driver":"pg 8.23.1","db_pool":"none (new connection per request)","workers":1,"change":"baseline: no pool, new connection per request, Server-Timing header"},"env":{"app":"node-express","kernel":"6.8.0-142-generic","os":"Ubuntu 24.04.5 LTS","nproc":"1","mem_total_mb":"961","node":"v24.21.0","python":"3.12.3","go":"","postgres":"16.15","swap_mb":"0","shared_buffers":"128MB","max_connections":"100","mem_avail_mb_idle":"631"},"criteria":{"p50":500.0,"p95":800.0,"p99":1000.0,"error_pct":1.0}}],"criteria":{"p50":500.0,"p95":800.0,"p99":1000.0,"error_pct":1.0},"best":100}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function(){
+  const D = JSON.parse(document.getElementById('report-data').textContent);
+  const L = D.levels, C = D.criteria;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  let charts = [], current = D.best || L[0].vus;
+  try { const saved = localStorage.getItem('report-vus'); if (saved && L.some(l => l.vus == saved)) current = +saved; } catch (e) {}
+
+  const rampBand = {id:'rampBand', beforeDatasetsDraw(chart, args, opts){
+    if (opts.until == null) return; const {ctx, chartArea:a, scales:{x}} = chart;
+    const x1 = Math.min(x.getPixelForValue(opts.until), a.right);
+    ctx.save(); ctx.fillStyle = css('--band'); ctx.fillRect(a.left, a.top, x1 - a.left, a.bottom - a.top); ctx.restore();
+  }};
+
+  function base(){
+    Chart.defaults.font.family = css('--f-mono').split(',')[0].replace(/"/g,'') || 'monospace';
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = css('--muted');
+    Chart.defaults.borderColor = css('--line');
+    Chart.defaults.animation = matchMedia('(prefers-reduced-motion: reduce)').matches ? false : {duration: 250};
+  }
+  const line = (label, data, color, extra) => Object.assign({label, data, borderColor: color, backgroundColor: color,
+    borderWidth: 1.8, pointRadius: 0, tension: .25, spanGaps: true}, extra || {});
+  const xy = (t, v) => t.map((x, i) => ({x, y: v[i]}));
+  const opts = (extra) => Object.assign({responsive:true, maintainAspectRatio:false, interaction:{mode:'index', intersect:false},
+    plugins:{legend:{position:'bottom', labels:{boxWidth:10, boxHeight:10, usePointStyle:true}}}}, extra || {});
+
+  function across(){
+    const vus = L.map(l => l.vus);
+    const limit = (v, label) => line(label, vus.map(() => v), css('--fail'), {borderDash:[5,4], borderWidth:1.2, pointRadius:0});
+    charts.push(new Chart(document.getElementById('c-lat'), {type:'line', data:{labels: vus.map(v => v + ' VUs'), datasets:[
+      line('p50', L.map(l => l.lat.med), css('--s-srv'), {pointRadius:4}),
+      line('p95', L.map(l => l.lat.p95), css('--s-client'), {pointRadius:4}),
+      line('p99', L.map(l => l.lat.p99), css('--s-p99'), {pointRadius:4}),
+      limit(C.p95, 'p95 limit'), limit(C.p99, 'p99 limit')]},
+      options: opts({scales:{y:{beginAtZero:true, title:{display:true, text:'ms'}}}})}));
+    charts.push(new Chart(document.getElementById('c-split'), {type:'bar', data:{labels: vus.map(v => v + ' VUs'), datasets:[
+      {label:'conn (get a DB connection)', data: L.map(l => l.srv.conn.med), backgroundColor: css('--s-conn'), stack:'s'},
+      {label:'db (queries)', data: L.map(l => l.srv.db.med), backgroundColor: css('--s-db'), stack:'s'},
+      {label:'app (Node work)', data: L.map(l => l.srv.app.med), backgroundColor: css('--s-app'), stack:'s'}]},
+      options: opts({scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true, title:{display:true, text:'ms'}}}})}));
+  }
+
+  let perLevel = [];
+  function level(vus){
+    perLevel.forEach(c => c.destroy()); perLevel = [];
+    const l = L.find(x => x.vus == vus); if (!l) return;
+    const k = l.k6, s = l.server, ramp = {rampBand:{until: l.ramp_s}};
+    const xAxis = {type:'linear', min:0, max: l.ramp_s + l.hold_s + 5, title:{display:true, text:'seconds since k6 start'}, ticks:{stepSize:20}};
+    if (k) {
+      perLevel.push(new Chart(document.getElementById('c-load'), {type:'line', plugins:[rampBand], data:{datasets:[
+        line('active users', xy(k.t, k.vus), css('--s-cpu'), {yAxisID:'y1'}),
+        line('req/s', xy(k.t, k.rps), css('--s-client')),
+        line('failed req/s', xy(k.t, k.failed_rps), css('--fail'))]},
+        options: opts({plugins:{...opts().plugins, ...ramp}, scales:{x:xAxis, y:{beginAtZero:true, title:{display:true, text:'req/s'}},
+          y1:{position:'right', beginAtZero:true, grid:{drawOnChartArea:false}, title:{display:true, text:'users'}}}})}));
+      perLevel.push(new Chart(document.getElementById('c-time'), {type:'line', plugins:[rampBand], data:{datasets:[
+        line('client p95', xy(k.t, k.p95), css('--s-client')),
+        line('client p99', xy(k.t, k.p99), css('--s-p99'), {borderDash:[3,3]}),
+        line('server total p95', xy(k.t, k.srv_p95), css('--s-srv')),
+        line('conn p95', xy(k.t, k.conn_p95), css('--s-conn'))]},
+        options: opts({plugins:{...opts().plugins, ...ramp}, scales:{x:xAxis, y:{beginAtZero:true, title:{display:true, text:'ms'}}}})}));
+    }
+    perLevel.push(new Chart(document.getElementById('c-cpu'), {type:'line', plugins:[rampBand], data:{datasets:[
+      line('CPU total', xy(s.t, s.cpu), css('--s-cpu')),
+      line('Node', xy(s.t, s.app_cpu), css('--s-node')),
+      line('Postgres', xy(s.t, s.pg_cpu), css('--s-pg')),
+      line('memory used MB', xy(s.t, s.mem_used), css('--s-mem'), {yAxisID:'y1', borderDash:[4,3]})]},
+      options: opts({plugins:{...opts().plugins, ...ramp}, scales:{x:xAxis, y:{min:0, max:100, title:{display:true, text:'CPU %'}},
+        y1:{position:'right', min:0, max:1000, grid:{drawOnChartArea:false}, title:{display:true, text:'MB'}}}})}));
+    const NAMES = {'GET /posts':'feed', 'GET /posts/:id':'view post', 'GET /users/:id/posts':'user posts',
+      'GET /me/posts':'my posts', 'POST /posts':'create post', 'POST /posts/:id/like':'like',
+      'DELETE /posts/:id/like':'unlike', 'POST /posts/:id/comments':'comment'};
+    const eps = Object.keys(l.endpoints).sort((a, b) => (NAMES[a] || a).localeCompare(NAMES[b] || b));
+    perLevel.push(new Chart(document.getElementById('c-ep'), {type:'bar', data:{labels: eps.map(e => NAMES[e] || e), datasets:[
+      {label:'client p95', data: eps.map(e => l.endpoints[e][0]), backgroundColor: css('--s-client')},
+      {label:'server total p95', data: eps.map(e => l.endpoints[e][1]), backgroundColor: css('--s-srv')}]},
+      options: opts({indexAxis:'y', scales:{x:{beginAtZero:true, title:{display:true, text:'ms'}}},
+        plugins:{...opts().plugins, tooltip:{callbacks:{title: items => eps[items[0].dataIndex]}}}})}));
+    document.querySelectorAll('.picker button').forEach(b => b.setAttribute('aria-selected', b.dataset.vus == vus ? 'true' : 'false'));
+  }
+
+  function render(){
+    if (!window.Chart) return;
+    charts.forEach(c => c.destroy()); charts = [];
+    base(); across(); level(current);
+  }
+  document.querySelectorAll('.picker button').forEach(b => b.addEventListener('click', () => {
+    current = +b.dataset.vus; try { localStorage.setItem('report-vus', current); } catch (e) {}
+    level(current);
+  }));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+  new MutationObserver(render).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+  render();
+})();
+</script>
+</body>
+</html>

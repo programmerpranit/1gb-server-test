@@ -1,0 +1,13 @@
+{
+  "tag": "node-express-v01-baseline",
+  "stack": "node-express",
+  "vus": 110,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791644412,
+  "loadgen": "do-blr1-loadgen-4vcpu-8gb",
+  "loadgen_nofile": "1048576",
+  "git_sha": "b165f7f",
+  "k6_version": "k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)",
+  "date": "2026-10-10T15:02:32Z"
+}
