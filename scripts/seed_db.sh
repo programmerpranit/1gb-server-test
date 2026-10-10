@@ -10,7 +10,7 @@ if [[ ! -f "$REPO_ROOT/data/posts.csv" ]]; then
 fi
 
 log "Uploading seed files"
-rsync -az --chmod=F644 "$REPO_ROOT"/data/{users,locations,posts}.csv "$REPO_ROOT/db/schema.sql" \
+rsync -az -e "$SSH_CMD" "$REPO_ROOT"/data/{users,locations,posts}.csv "$REPO_ROOT/db/schema.sql" \
   "$SSH_TARGET:/opt/bench/seed/"
 
 log "Building bench_seed"

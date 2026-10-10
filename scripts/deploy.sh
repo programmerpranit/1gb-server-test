@@ -7,7 +7,7 @@ APP_SRC="$REPO_ROOT/apps/$APP_NAME"
 [[ -f "$APP_SRC/start.sh" ]] || { echo "apps/$APP_NAME/start.sh missing (see CLAUDE.md app contract)"; exit 1; }
 
 log "Uploading apps/$APP_NAME"
-rsync -az --delete \
+rsync -az -e "$SSH_CMD" --delete \
   --exclude node_modules --exclude target --exclude .venv --exclude __pycache__ \
   "$APP_SRC/" "$SSH_TARGET:/opt/bench/app/"
 

@@ -6,6 +6,7 @@
 set -euo pipefail
 DB_USER="${1:?db_user}"
 SEED=/opt/bench/seed
+chmod 755 "$SEED"; chmod 644 "$SEED"/*
 
 sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
 DROP DATABASE IF EXISTS bench WITH (FORCE);

@@ -209,31 +209,46 @@ before the next unrelated experiment unless they become the new baseline for tha
 
 ## Plan
 
-### Phase 0 — Infrastructure (scripts done, environment not yet)
+### Phase 0 — Infrastructure (done 2026-10-10)
 - [x] Dataset analysis and converter (`scripts/xlsx_to_csv.py`)
 - [x] Shared schema, API contract, k6 test, metrics sampler, run/summarize/release scripts
-- [ ] Create the droplet (Ubuntu 24.04, SSH key), fill `.env`. Scripts SSH as root with key auth
-      (`ssh -o BatchMode=yes`): `ssh root@<ip>` must work without a password prompt.
+- [x] Droplet created (Ubuntu 24.04.5, kernel 6.8.0-142, 961 MB usable RAM), `.env` filled. Scripts SSH as root
+      with key auth using `SSH_KEY` from `.env` (`~/.ssh/do`).
 - [x] Load generator decided: the MacBook (`LOADGEN_LABEL=macbook-home-wifi`). Latency includes the home network, so
       keep the same network for every run, avoid other heavy traffic during tests, and treat absolute latency as
       "client-observed". A same-region droplet can be added later as a separate load source label.
 - [x] GitHub repo created: `programmerpranit/1gb-server-test` (private)
-- [ ] `scripts/provision.sh`, then `scripts/seed_db.sh`; note idle memory with only Postgres running
-- [ ] Smoke test the tooling: run `stress.js` locally against a dev build with `VUS=10 RAMP_S=10 HOLD_S=10`
+- [x] Provisioned (Node v24.21.0, PostgreSQL 16.15) and seeded (`bench_seed` = 62 MB).
+      Idle after `prepare_run.sh` with Postgres + node-express running: ~350 MB used, ~605 MB available
+      (DigitalOcean agent + OS take ~300 MB before anything is installed). Idle PSS: node 62 MB, Postgres ~25 MB.
+- [x] Tooling smoke-tested: all endpoints via curl against a local Postgres; k6 v2.3.0 run (30 VUs, 10 s + 10 s,
+      0 errors); `prepare_run.sh` and `collect_metrics.sh` on the droplet. Mac → droplet RTT ≈ 40 ms.
+- Notes: macOS ships `openrsync` (no `--chmod`); the sampler is one long-lived python3 process because forking
+  `awk`/`ss` every second cost ~10 % of the vCPU (now ~1–2 %).
 
 ### Phase 1 — Node.js + Express + Postgres baseline (`node-express-v01-baseline`)
-- `apps/node-express/`: Express 5, `pg` (node-postgres) `Pool` with default settings (max 10), plain SQL, no ORM.
+- `apps/node-express/`: Express 5, `pg` (node-postgres), plain SQL, no ORM. **No connection pool** (user decision):
+  every request opens a new `pg.Client`, runs its queries (incl. its transaction) on it, and closes it before
+  responding. Expect failures once concurrent requests exceed Postgres `max_connections` (100): error `53300`
+  `sorry, too many clients already`, plus per-request backend fork + SCRAM auth cost (~20 ms extra per request
+  observed at idle).
 - Single process (no cluster/pm2), no reverse proxy, no request logging, `NODE_ENV=production`, default heap.
 - `build.sh`: `npm ci --omit=dev`. `start.sh`: `exec node src/server.js`.
 - Postgres 16 defaults (shared_buffers 128 MB, max_connections 100). Swap off.
-- Implement the contract, verify each endpoint with curl against a local Postgres, commit, deploy, run the ladder.
+- Versions: express 5.3.0, pg 8.23.1 (exact pins in `package.json`), Node v24.21.0 on the droplet.
+- Writes use explicit `BEGIN/COMMIT` with a checked-out client (like/unlike/comment: 3–4 round trips). Collapsing
+  them into a single CTE statement is a Phase 2 candidate. Express defaults kept (ETag on, `x-powered-by` on).
+- [x] Contract implemented and verified with curl (status codes, 400/401/404 paths, private posts, idempotent likes).
+- [x] Deployed to the droplet (`scripts/deploy.sh node-express`).
+- [ ] Commit, run the ladder (`scripts/run_test.sh node-express-v01-baseline`), fill `config.md`, release.
 - Expectation to verify: 1 vCPU saturates before 1 GB RAM does; watch steal %, the pool queue, and OOM kills.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
-Candidates, roughly in order: pg pool size (5 / 20 / 50); `pg-native` or prepared statements; Postgres tuning
+Candidates, roughly in order: introduce `pg.Pool` (default max 10), then pool size (5 / 20 / 50); `pg-native` or prepared statements; Postgres tuning
 (`shared_buffers`, `work_mem`, `synchronous_commit=off` as a labelled trade-off); 1 GB swap file; cluster with 2
 workers (expected little gain on 1 vCPU — measure it); `--max-old-space-size`; Fastify instead of Express;
-in-process cache of the first global feed page (1 s TTL); PgBouncer; nginx in front (keep-alive, gzip on/off);
+single-statement CTE writes instead of BEGIN/COMMIT; disable ETag; in-process cache of the first global feed page
+(1 s TTL); PgBouncer; nginx in front (keep-alive, gzip on/off);
 Bun runtime; uWebSockets.js / Hono.
 
 ### Phase 3 — Python
