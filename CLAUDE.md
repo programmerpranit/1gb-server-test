@@ -267,8 +267,10 @@ before the next unrelated experiment unless they become the new baseline for tha
         runs k6 there against `TARGET_HOST` (10.122.0.2), copies `k6_summary.json`, `k6_start.json`,
         `k6_report.html` back; `loadgen_metrics.csv` samples load-generator CPU and k6 RSS (summary warns > 70 %).
   - [x] **Live dashboard:** k6 web dashboard bound to the load generator's 127.0.0.1:5665 (no auth, never public),
-        tunnelled by `run_test.sh` to **http://localhost:5665** on the Mac for the whole session (2 s refresh). It
-        exists only while k6 runs — reload the page when the next VU level starts.
+        tunnelled to **http://localhost:5665** on the Mac (2 s refresh) — by `run_test.sh` for its duration, or
+        persistently with `scripts/dashboard.sh` (run_test reuses it). It exists only while k6 runs — refresh the
+        page when a VU level starts. k6 would not exit while a browser held the page open; `run_k6` starts a
+        watcher that closes dashboard connections once the report is exported.
   - [x] Target firewall already allows 3000/tcp (`ufw allow 3000/tcp`), so private-IP traffic works for any
         load-generator IP.
   - [x] Smoke test (20 VUs): all files back, Server-Timing recorded, outside-the-app p50 1.7 ms, load generator 1 % CPU.

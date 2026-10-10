@@ -60,12 +60,12 @@ if [[ -n "$LOADGEN_HOST" ]]; then
   loadgen "mkdir -p /opt/loadgen/runs"
   # Live dashboard: k6 listens on the load generator's localhost only; reach it through an SSH tunnel.
   if lsof -ti "tcp:$DASHBOARD_PORT" >/dev/null 2>&1; then
-    log "WARNING: local port $DASHBOARD_PORT is busy — live dashboard tunnel not opened"
+    log "Live dashboard: reusing the tunnel already on http://localhost:$DASHBOARD_PORT (scripts/dashboard.sh)"
   else
     ssh "${SSH_OPTS[@]}" -o ExitOnForwardFailure=yes -N -L "$DASHBOARD_PORT:127.0.0.1:5665" "$LOADGEN_TARGET" 2>/dev/null &
     TUNNEL_PID=$!
     trap 'kill $TUNNEL_PID 2>/dev/null || true' EXIT
-    log "Live dashboard (while k6 runs): http://localhost:$DASHBOARD_PORT"
+    log "Live dashboard (while k6 runs; refresh when a level starts): http://localhost:$DASHBOARD_PORT"
   fi
 else
   ulimit -n 65535 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
