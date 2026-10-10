@@ -1,0 +1,13 @@
+{
+  "tag": "node-express-v02-pool",
+  "stack": "node-express",
+  "vus": 400,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791637210,
+  "loadgen": "macbook-home-wifi",
+  "loadgen_nofile": "65535",
+  "git_sha": "379c658",
+  "k6_version": "k6 v2.3.0 (commit/devel, go1.27.1, darwin/arm64)",
+  "date": "2026-10-10T13:02:30Z"
+}

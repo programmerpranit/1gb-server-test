@@ -85,6 +85,7 @@ scripts/
   run_test.sh <tag> <vus..>   run one configuration at the given VU levels (--search: ladder + bisection)
   summarize.py <run_dir>      k6 + server metrics -> pass/fail, summary, README row, results.csv row
   release.sh <tag>            commit results, git tag, GitHub release with build + results
+  release.sh --update <tag>   after adding VU levels to a released tag: push results, refresh release assets/notes
   server/                     scripts executed ON the droplet via `ssh bash -s`
     setup.sh  seed.sh  reset_db.sh  install_app.sh  prepare_run.sh  collect_metrics.sh
 data/                         generated CSVs (git-ignored); data/meta.json is tracked (load test needs the counts)
@@ -264,8 +265,9 @@ before the next unrelated experiment unless they become the new baseline for tha
 - [x] Re-run as `node-express-v01-baseline-r2` (new criteria + search): **capacity 90 VUs / 42.8 req/s**
       (marginal, p99 980 ms; 75 VUs comfortable at p99 261 ms),
       100 VUs fails on p95/p99 at the ~44 req/s CPU ceiling. ~20 ms CPU/request, ~60 % in Postgres.
-- [x] `node-express-v02-pool` (`pg.Pool` defaults, max 10): 100/150/200 VUs all pass → **≥ 200 VUs / 106.3 req/s**,
-      ~2.9 ms CPU per request (7× cheaper), ~30 % CPU at 200 VUs. Limit not found yet.
+- [x] `node-express-v02-pool` (`pg.Pool` defaults, max 10): 100/150/200/400/500 VUs all pass →
+      **≥ 500 VUs / 263.1 req/s**, ~2.2 ms CPU per request, ~58 % CPU at 500 VUs. Limit not found yet. Latency
+      spreads from 400 VUs without CPU saturation — needs server-side timing to isolate.
 - [ ] Next: run v02 at higher VU levels (user picks), then pool-size experiments.
 - Expectation to verify: 1 vCPU saturates before 1 GB RAM does; watch steal %, the pool queue, and OOM kills.
 

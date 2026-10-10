@@ -1,12 +1,12 @@
 {
   "tag": "node-express-v02-pool",
   "criteria": {
-    "p50": 500,
-    "p95": 800,
-    "p99": 1000,
-    "error_pct": 1
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
   },
-  "capacity_vus": 200,
+  "capacity_vus": 500,
   "first_fail_vus": null,
   "levels_tested": [
     {
@@ -23,32 +23,42 @@
       "vus": 200,
       "pass": true,
       "fail_reasons": []
+    },
+    {
+      "vus": 400,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "vus": 500,
+      "pass": true,
+      "fail_reasons": []
     }
   ],
   "at_capacity": {
-    "steady_rps": 106.3,
-    "steady_rpm": 6378.0,
+    "steady_rps": 263.0833333333333,
+    "steady_rpm": 15785.0,
     "steady_latency_ms": {
-      "avg": 45.7520587958607,
-      "med": 37.751,
-      "p(90)": 44.170100000000005,
-      "p(95)": 55.25184999999998,
-      "p(99)": 287.4752599999999,
-      "max": 737.041
+      "avg": 62.34637009819459,
+      "med": 30.124,
+      "p(90)": 127.19820000000001,
+      "p(95)": 233.09259999999998,
+      "p(99)": 519.74556,
+      "max": 1900.346
     },
     "error_rate_pct": 0,
     "server": {
-      "app_pss_mb_peak": 104.0,
-      "pg_pss_mb_peak": 89.0,
-      "mem_used_mb_peak": 443.0,
-      "mem_avail_mb_min": 518.0,
+      "app_pss_mb_peak": 109.0,
+      "pg_pss_mb_peak": 103.0,
+      "mem_used_mb_peak": 458.0,
+      "mem_avail_mb_min": 503.0,
       "swap_used_mb_peak": 0.0,
-      "cpu_total_pct_avg_steady": 30.476666666666674,
-      "cpu_steal_pct_avg_steady": 0.5983333333333333,
-      "app_cpu_pct_avg_steady": 14.51,
-      "pg_cpu_pct_avg_steady": 11.52,
-      "app_conns_peak": 200.0,
-      "load1_peak": 0.66
+      "cpu_total_pct_avg_steady": 57.775,
+      "cpu_steal_pct_avg_steady": 0.34833333333333333,
+      "app_cpu_pct_avg_steady": 25.793333333333326,
+      "pg_cpu_pct_avg_steady": 25.511666666666667,
+      "app_conns_peak": 500.0,
+      "load1_peak": 1.13
     }
   }
 }
