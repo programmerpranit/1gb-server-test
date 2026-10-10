@@ -39,10 +39,13 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 - **CPU %** is whole-machine busy time out of one vCPU; **Steal %** is time taken by the hypervisor (noisy neighbours).
 - **Error** = any non-2xx response or a request that exceeded the 10 s timeout.
 - **Pass** uses the criteria above (steady p50/p95/p99, whole-run errors).
+- **Srv / Conn** come from the app's `Server-Timing` header (steady phase): **Srv** = time inside the app,
+  **Conn** = time to get a DB connection (connect + auth without a pool, waiting for a free connection with a pool).
+  Client latency − Srv = time outside the handler (network, queues, load generator).
 
 <!-- RESULTS:START -->
-| Tag | Stack | VUs | Pass | Steady req/s | Steady req/min | Total req | p50 ms | p90 ms | p95 ms | p99 ms | Max ms | Error % | App MB (peak) | PG MB (peak) | Used MB (peak) | Swap MB | CPU % (avg steady) | Steal % | Load from |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Tag | Stack | VUs | Pass | Steady req/s | Steady req/min | Total req | p50 ms | p90 ms | p95 ms | p99 ms | Max ms | Srv p50 ms | Srv p95 ms | Conn p95 ms | Error % | App MB (peak) | PG MB (peak) | Used MB (peak) | Swap MB | CPU % (avg steady) | Steal % | Load from |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 <!-- RESULTS:END -->
 
 ## Reproducing

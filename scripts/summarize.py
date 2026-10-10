@@ -25,7 +25,7 @@ CAP_START, CAP_END = "<!-- CAPACITY:START -->", "<!-- CAPACITY:END -->"
 REPO = "https://github.com/programmerpranit/1gb-server-test"
 
 RUN_COLUMNS = ["Tag", "Stack", "VUs", "Pass", "Steady req/s", "Steady req/min", "Total req", "p50 ms", "p90 ms",
-               "p95 ms", "p99 ms", "Max ms", "Error %", "App MB (peak)", "PG MB (peak)", "Used MB (peak)",
+               "p95 ms", "p99 ms", "Max ms", "Srv p50 ms", "Srv p95 ms", "Conn p95 ms", "Error %", "App MB (peak)", "PG MB (peak)", "Used MB (peak)",
                "Swap MB", "CPU % (avg steady)", "Steal %", "Load from"]
 CAP_COLUMNS = ["Tag", "Stack", "What changed", "Capacity (VUs)", "First fail (VUs)", "Steady req/s",
                "Steady req/min", "p50 ms", "p95 ms", "p99 ms", "Error %", "Peak used MB", "Release"]
@@ -64,6 +64,10 @@ CSV_COLUMNS = [
     "run_avg_ms", "run_p50_ms", "run_p90_ms", "run_p95_ms", "run_p99_ms", "run_max_ms",
     # per endpoint p95 (whole run)
     *ENDPOINTS.values(),
+    # server timing from the Server-Timing header (steady phase): time inside the app and its split
+    "srv_total_p50_ms", "srv_total_p95_ms", "srv_total_p99_ms", "srv_conn_p50_ms", "srv_conn_p95_ms", "srv_conn_p99_ms",
+    "srv_db_p50_ms", "srv_db_p95_ms", "srv_db_p99_ms", "srv_app_p50_ms", "srv_app_p95_ms", "srv_app_p99_ms",
+    "outside_p50_ms", "outside_p95_ms", "server_timing_missing",
     # server resources
     "app_pss_mb_peak", "pg_pss_mb_peak", "mem_used_mb_peak", "mem_avail_mb_min", "swap_used_mb_peak",
     "cpu_total_pct_avg_steady", "cpu_steal_pct_avg_steady", "app_cpu_pct_avg_steady", "pg_cpu_pct_avg_steady",
@@ -204,8 +208,23 @@ def summarize(run_dir, crit):
             name.split("name:", 1)[1].rstrip("}"): m["values"].get("p(95)")
             for name, m in k6["metrics"].items() if name.startswith("http_req_duration{name:")
         },
+        "server_timing_ms": {
+            part: {k: metric(k6, f"server_{part}{{phase:steady}}", k) for k in ("med", "p(95)", "p(99)", "max")}
+            for part in ("total", "conn", "db", "app")
+        },
+        "server_total_p95_by_endpoint_ms": {
+            name.split("name:", 1)[1].rstrip("}"): m["values"].get("p(95)")
+            for name, m in k6["metrics"].items() if name.startswith("server_total{name:")
+        },
+        "server_timing_missing": metric(k6, "server_timing_missing", "count") or 0,
         "bench": bench,
         "server_env": env,
+    }
+    st, sl = s["server_timing_ms"], s["steady_latency_ms"]
+    # Client-observed latency not spent inside the app: network, kernel/accept queue, event-loop wait, load generator.
+    s["outside_ms"] = {
+        k: (sl[k] - st["total"][k]) if sl[k] is not None and st["total"][k] is not None else None
+        for k in ("med", "p(95)")
     }
     # Prefer the k6 setup() timestamp; fall back to the wall clock taken before k6 launched.
     # Server samples use the droplet clock — both machines should run NTP.
@@ -226,7 +245,9 @@ def summarize(run_dir, crit):
     srv, lat, rl = s["server"], s["steady_latency_ms"], s["latency_ms"]
     row = [s["tag"], s["stack"], str(s["vus"]), "PASS" if passed else "FAIL", fmt(s["steady_rps"]),
            fmt(s["steady_rpm"], 0), str(s["total_requests"]), fmt(lat["med"]), fmt(lat["p(90)"]), fmt(lat["p(95)"]),
-           fmt(lat["p(99)"]), fmt(lat["max"], 0), fmt(s["error_rate_pct"], 2), fmt(srv.get("app_pss_mb_peak"), 0),
+           fmt(lat["p(99)"]), fmt(lat["max"], 0), fmt(s["server_timing_ms"]["total"]["med"]),
+           fmt(s["server_timing_ms"]["total"]["p(95)"]), fmt(s["server_timing_ms"]["conn"]["p(95)"]),
+           fmt(s["error_rate_pct"], 2), fmt(srv.get("app_pss_mb_peak"), 0),
            fmt(srv.get("pg_pss_mb_peak"), 0), fmt(srv.get("mem_used_mb_peak"), 0),
            fmt(srv.get("swap_used_mb_peak"), 0), fmt(srv.get("cpu_total_pct_avg_steady")),
            fmt(srv.get("cpu_steal_pct_avg_steady")), s["loadgen"]]
@@ -236,8 +257,16 @@ def summarize(run_dir, crit):
           f"Criteria: steady p50 < {crit.p50:g} ms, p95 < {crit.p95:g} ms, p99 < {crit.p99:g} ms, "
           f"errors < {crit.error_pct:g} %." + (f" Failed: {', '.join(reasons)}." if reasons else ""), "",
           "Latency columns are steady-state (hold phase). Error % covers the whole run.", "",
-          "## p95 by endpoint (ms, whole run)", ""]
-    md += [f"- `{k}`: {fmt(v)}" for k, v in sorted(s["per_endpoint_p95_ms"].items())]
+          "## Server timing (steady phase, ms, from Server-Timing)", "",
+          "| Part | p50 | p95 | p99 | max |", "|---|---|---|---|---|"]
+    for part in ("total", "conn", "db", "app"):
+        v = s["server_timing_ms"][part]
+        md.append(f"| {part} | {fmt(v['med'])} | {fmt(v['p(95)'])} | {fmt(v['p(99)'])} | {fmt(v['max'])} |")
+    md += ["", f"Outside the app (client p − server total p): p50 {fmt(s['outside_ms']['med'])} ms, "
+               f"p95 {fmt(s['outside_ms']['p(95)'])} ms. Responses without Server-Timing: {s['server_timing_missing']}.",
+           "", "## p95 by endpoint (ms, whole run: client / server total)", ""]
+    md += [f"- `{k}`: {fmt(v)} / {fmt(s['server_total_p95_by_endpoint_ms'].get(k))}"
+           for k, v in sorted(s["per_endpoint_p95_ms"].items())]
     with open(os.path.join(run_dir, "summary.md"), "w") as fh:
         fh.write("\n".join(md) + "\n")
 
@@ -266,6 +295,10 @@ def summarize(run_dir, crit):
            (("avg", "avg"), ("p50", "med"), ("p90", "p(90)"), ("p95", "p(95)"), ("p99", "p(99)"), ("max", "max"))},
         **{col: rnd(s["per_endpoint_p95_ms"].get(name)) for name, col in ENDPOINTS.items()},
         **{k: rnd(v) for k, v in srv.items()},
+        **{f"srv_{part}_{n}_ms": rnd(s["server_timing_ms"][part][k])
+           for part in ("total", "conn", "db", "app") for n, k in (("p50", "med"), ("p95", "p(95)"), ("p99", "p(99)"))},
+        "outside_p50_ms": rnd(s["outside_ms"]["med"]), "outside_p95_ms": rnd(s["outside_ms"]["p(95)"]),
+        "server_timing_missing": s["server_timing_missing"],
     }
     return s, row, record
 

@@ -1,18 +1,18 @@
 'use strict';
 
-// Implementation of the protocol v1 API (see CLAUDE.md "API contract").
-// Deliberately plain: Express defaults, one process, a pg.Pool with default settings (max 10) — every request
-// borrows one connection for all its queries and returns it when done. One query per step.
+// Implementation of the protocol v2 API (see CLAUDE.md "API contract").
+// Deliberately plain: Express defaults, one process, NO connection pool — every request opens its own
+// Postgres connection and closes it when done. One query per step.
+// Every response carries a Server-Timing header: conn (connect + auth), db (queries), app (the rest), total.
 
 const express = require('express');
-const { Pool, types } = require('pg');
+const { Client, types } = require('pg');
 
 // bigint ids/counters come back as strings by default; all our values fit in a JS number.
 types.setTypeParser(20, (v) => parseInt(v, 10));
 
 const PORT = Number(process.env.PORT || 3000);
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-pool.on('error', (err) => console.error('pg pool error', err));
+const DATABASE_URL = process.env.DATABASE_URL;
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -80,46 +80,83 @@ function requireUser(req, res, next) {
   next();
 }
 
-// One pooled connection per request, returned to the pool before the response is sent.
-// A connection whose ROLLBACK failed is destroyed instead of being reused.
-async function withClient(fn) {
-  const client = await pool.connect();
-  let broken;
+// --- Server timing -------------------------------------------------------------------------------------------
+const nowMs = () => Number(process.hrtime.bigint()) / 1e6;
+
+// First middleware: start the clock and emit Server-Timing just before the headers go out (also on errors).
+function serverTiming(req, res, next) {
+  const timing = { start: nowMs(), conn: 0, db: 0 };
+  req.timing = timing;
+  const writeHead = res.writeHead;
+  res.writeHead = function timedWriteHead(...args) {
+    const total = nowMs() - timing.start;
+    const app = Math.max(0, total - timing.conn - timing.db);
+    this.setHeader('Server-Timing',
+      `conn;dur=${timing.conn.toFixed(1)}, db;dur=${timing.db.toFixed(1)}, ` +
+      `app;dur=${app.toFixed(1)}, total;dur=${total.toFixed(1)}`);
+    return writeHead.apply(this, args);
+  };
+  next();
+}
+
+// --- Database access ---------------------------------------------------------------------------------------------
+// One fresh connection per request, closed before the response is sent. `fn` receives a query wrapper that adds
+// each query's duration to req.timing.db; connect + auth and close time go to req.timing.conn.
+async function withClient(req, fn) {
+  const timing = req.timing;
+  const client = new Client({ connectionString: DATABASE_URL });
+  client.on('error', (err) => console.error('pg client error', err));
+  const connectStart = nowMs();
   try {
-    return await fn(client);
-  } catch (err) {
-    if (err.brokenConnection) broken = err;
-    throw err;
+    await client.connect();
   } finally {
-    client.release(broken);
+    timing.conn += nowMs() - connectStart;
+  }
+  const db = {
+    async query(text, params) {
+      const start = nowMs();
+      try {
+        return await client.query(text, params);
+      } finally {
+        timing.db += nowMs() - start;
+      }
+    },
+  };
+  try {
+    return await fn(db);
+  } finally {
+    const endStart = nowMs();
+    await client.end().catch(() => {});
+    timing.conn += nowMs() - endStart;
   }
 }
 
-async function withTransaction(fn) {
-  return withClient(async (client) => {
-    await client.query('BEGIN');
+async function withTransaction(req, fn) {
+  return withClient(req, async (db) => {
+    await db.query('BEGIN');
     try {
-      const result = await fn(client);
-      await client.query('COMMIT');
+      const result = await fn(db);
+      await db.query('COMMIT');
       return result;
     } catch (err) {
-      await client.query('ROLLBACK').catch(() => { err.brokenConnection = true; });
+      await db.query('ROLLBACK').catch(() => {});
       throw err;
     }
   });
 }
 
 const app = express();
+app.use(serverTiming);
 app.use(express.json());
 
 app.get('/health', async (req, res) => {
-  await withClient((db) => db.query('SELECT 1'));
+  await withClient(req, (db) => db.query('SELECT 1'));
   res.json({ status: 'ok' });
 });
 
 app.get('/posts', async (req, res) => {
   const { limit, before } = pageParams(req.query);
-  const { rows } = await withClient((db) => db.query(
+  const { rows } = await withClient(req, (db) => db.query(
     `SELECT ${POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id
      WHERE p.is_public AND p.id < $1 ORDER BY p.id DESC LIMIT $2`,
     [before, limit],
@@ -130,7 +167,7 @@ app.get('/posts', async (req, res) => {
 app.get('/posts/:id', async (req, res) => {
   const postId = requireId(req.params.id);
   const viewer = optionalUser(req);
-  const body = await withClient(async (db) => {
+  const body = await withClient(req, async (db) => {
     const { rows } = await db.query(
       `SELECT ${POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id WHERE p.id = $1`,
       [postId],
@@ -150,7 +187,7 @@ app.get('/posts/:id', async (req, res) => {
 app.get('/users/:id/posts', async (req, res) => {
   const userId = requireId(req.params.id);
   const { limit, before } = pageParams(req.query);
-  const { rows } = await withClient((db) => db.query(
+  const { rows } = await withClient(req, (db) => db.query(
     `SELECT ${POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id
      WHERE p.user_id = $1 AND p.is_public AND p.id < $2 ORDER BY p.id DESC LIMIT $3`,
     [userId, before, limit],
@@ -160,7 +197,7 @@ app.get('/users/:id/posts', async (req, res) => {
 
 app.get('/me/posts', requireUser, async (req, res) => {
   const { limit, before } = pageParams(req.query);
-  const { rows } = await withClient((db) => db.query(
+  const { rows } = await withClient(req, (db) => db.query(
     `SELECT ${POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id
      WHERE p.user_id = $1 AND p.id < $2 ORDER BY p.id DESC LIMIT $3`,
     [req.userId, before, limit],
@@ -172,7 +209,7 @@ app.post('/posts', requireUser, async (req, res) => {
   const text = validText(req.body);
   const isPublic = req.body.is_public === undefined ? true : req.body.is_public;
   if (typeof isPublic !== 'boolean') throw new HttpError(400, 'is_public must be a boolean');
-  const { rows } = await withClient((db) => db.query(
+  const { rows } = await withClient(req, (db) => db.query(
     `WITH p AS (
        INSERT INTO posts (user_id, text, is_public) VALUES ($1, $2, $3) RETURNING *
      )
@@ -184,14 +221,14 @@ app.post('/posts', requireUser, async (req, res) => {
 
 app.post('/posts/:id/like', requireUser, async (req, res) => {
   const postId = requireId(req.params.id);
-  const likeCount = await withTransaction(async (client) => {
-    const inserted = await client.query(
+  const likeCount = await withTransaction(req, async (db) => {
+    const inserted = await db.query(
       'INSERT INTO likes (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [postId, req.userId],
     );
     const { rows } = inserted.rowCount
-      ? await client.query('UPDATE posts SET like_count = like_count + 1 WHERE id = $1 RETURNING like_count', [postId])
-      : await client.query('SELECT like_count FROM posts WHERE id = $1', [postId]);
+      ? await db.query('UPDATE posts SET like_count = like_count + 1 WHERE id = $1 RETURNING like_count', [postId])
+      : await db.query('SELECT like_count FROM posts WHERE id = $1', [postId]);
     if (!rows[0]) throw new HttpError(404, 'not found');
     return rows[0].like_count;
   });
@@ -200,11 +237,11 @@ app.post('/posts/:id/like', requireUser, async (req, res) => {
 
 app.delete('/posts/:id/like', requireUser, async (req, res) => {
   const postId = requireId(req.params.id);
-  const likeCount = await withTransaction(async (client) => {
-    const deleted = await client.query('DELETE FROM likes WHERE post_id = $1 AND user_id = $2', [postId, req.userId]);
+  const likeCount = await withTransaction(req, async (db) => {
+    const deleted = await db.query('DELETE FROM likes WHERE post_id = $1 AND user_id = $2', [postId, req.userId]);
     const { rows } = deleted.rowCount
-      ? await client.query('UPDATE posts SET like_count = like_count - 1 WHERE id = $1 RETURNING like_count', [postId])
-      : await client.query('SELECT like_count FROM posts WHERE id = $1', [postId]);
+      ? await db.query('UPDATE posts SET like_count = like_count - 1 WHERE id = $1 RETURNING like_count', [postId])
+      : await db.query('SELECT like_count FROM posts WHERE id = $1', [postId]);
     if (!rows[0]) throw new HttpError(404, 'not found');
     return rows[0].like_count;
   });
@@ -214,13 +251,13 @@ app.delete('/posts/:id/like', requireUser, async (req, res) => {
 app.post('/posts/:id/comments', requireUser, async (req, res) => {
   const postId = requireId(req.params.id);
   const text = validText(req.body);
-  const comment = await withTransaction(async (client) => {
-    const { rows } = await client.query(
+  const comment = await withTransaction(req, async (db) => {
+    const { rows } = await db.query(
       `INSERT INTO comments (post_id, user_id, text) VALUES ($1, $2, $3)
        RETURNING id, post_id, user_id, text, created_at`,
       [postId, req.userId, text],
     );
-    await client.query('UPDATE posts SET comment_count = comment_count + 1 WHERE id = $1', [postId]);
+    await db.query('UPDATE posts SET comment_count = comment_count + 1 WHERE id = $1', [postId]);
     return rows[0];
   });
   res.status(201).json({ comment });
@@ -246,7 +283,7 @@ app.use((err, req, res, next) => {
 const server = app.listen(PORT, () => console.log(`node-express listening on :${PORT}`));
 
 function shutdown() {
-  server.close(() => pool.end().then(() => process.exit(0)));
+  server.close(() => process.exit(0));
   setTimeout(() => process.exit(1), 5000).unref();
 }
 process.on('SIGTERM', shutdown);

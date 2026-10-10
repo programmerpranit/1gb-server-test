@@ -5,10 +5,12 @@
 // Profile: ramp 0 -> VUS over RAMP_S seconds, then hold VUS for HOLD_S seconds.
 // Each VU is one "user" (fixed X-User-Id) doing a weighted mix of actions with think time.
 // Requests are tagged phase=ramp|steady so steady-state numbers can be reported separately.
+// The app's Server-Timing header (protocol v2) is recorded as server_total / server_conn / server_db / server_app.
 
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import exec from 'k6/execution';
+import { Trend, Counter } from 'k6/metrics';
 import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.2/index.js';
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
@@ -38,6 +40,12 @@ const ACTIONS = [
   ['createPost', 5],
 ];
 
+const ENDPOINTS = ['GET /posts', 'GET /posts/:id', 'GET /users/:id/posts', 'GET /me/posts',
+  'POST /posts/:id/like', 'DELETE /posts/:id/like', 'POST /posts/:id/comments', 'POST /posts'];
+const SERVER_PARTS = ['total', 'conn', 'db', 'app'];
+const serverTrends = Object.fromEntries(SERVER_PARTS.map((p) => [p, new Trend(`server_${p}`, true)]));
+const serverTimingMissing = new Counter('server_timing_missing');
+
 export const options = {
   scenarios: {
     users: {
@@ -61,11 +69,11 @@ export const options = {
     'http_req_duration{phase:ramp}': ['max>=0'],
     'http_reqs{phase:steady}': ['count>=0'],
     'http_reqs{phase:ramp}': ['count>=0'],
-    ...Object.fromEntries(
-      ['GET /posts', 'GET /posts/:id', 'GET /users/:id/posts', 'GET /me/posts',
-       'POST /posts/:id/like', 'DELETE /posts/:id/like', 'POST /posts/:id/comments', 'POST /posts']
-        .map((n) => [`http_req_duration{name:${n}}`, ['max>=0']]),
-    ),
+    ...Object.fromEntries(ENDPOINTS.map((n) => [`http_req_duration{name:${n}}`, ['max>=0']])),
+    ...Object.fromEntries(SERVER_PARTS.map((p) => [`server_${p}{phase:steady}`, ['max>=0']])),
+    ...Object.fromEntries(ENDPOINTS.map((n) => [`server_total{name:${n}}`, ['max>=0']])),
+    ...Object.fromEntries(ENDPOINTS.map((n) => [`server_conn{name:${n}}`, ['max>=0']])),
+    server_timing_missing: ['count>=0'],
   },
 };
 
@@ -90,7 +98,21 @@ function params(name, extraHeaders = {}) {
   };
 }
 
+// Server-Timing: conn;dur=1.2, db;dur=3.4, app;dur=0.8, total;dur=5.4
+const TIMING_RE = /([a-z]+);dur=([0-9.]+)/g;
+function recordServerTiming(res, name) {
+  const header = res.headers['Server-Timing'];
+  if (!header) { serverTimingMissing.add(1, { name }); return; }
+  TIMING_RE.lastIndex = 0;
+  let m;
+  while ((m = TIMING_RE.exec(header)) !== null) {
+    const trend = serverTrends[m[1]];
+    if (trend) trend.add(parseFloat(m[2]), { name });
+  }
+}
+
 function ok(res, name) {
+  recordServerTiming(res, name);
   return check(res, { [`${name} 2xx`]: (r) => r.status >= 200 && r.status < 300 });
 }
 

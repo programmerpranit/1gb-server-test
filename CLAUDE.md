@@ -285,6 +285,9 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
 - Postgres 16 defaults (shared_buffers 128 MB, max_connections 100). Swap off.
 - Writes use explicit `BEGIN/COMMIT` (like/unlike/comment: 3–4 round trips). Express defaults kept (ETag on,
   `x-powered-by` on).
+- [x] `Server-Timing` implemented (first middleware patches `res.writeHead`; `withClient(req, fn)` times connect +
+      close as `conn` and each query as `db`), k6 Trends `server_*`, summarizer/CSV/README columns. Verified locally:
+      header on every response incl. 400/401/404; 30-VU smoke: server total p50 10.9 ms = conn 6.6 + db 3.5 + app 0.6.
 - [ ] **`node-express-v01-baseline`** — no pool (new `pg.Client` per request) + `Server-Timing`. Expect `conn` to
       dominate server time, and `53300 too many clients` errors once concurrent requests exceed 100.
 - [ ] **`node-express-v02-pool`** — one change: `pg.Pool` defaults (max 10) + `Server-Timing`. Use `conn` (pool wait)
