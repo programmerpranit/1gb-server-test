@@ -1,29 +1,30 @@
 # node-express-v02-pool
 
 ## Summary
-**Capacity: at least 900 VUs at 461.0 req/s (27,660 req/min)**, steady p50 66 ms / p95 318 ms / p99 458 ms,
-0 % errors. All seven tested levels (100–900) passed. 900 VUs is close to the CPU ceiling, so the limit is
-probably not far above it. Compared with v01-baseline-r2 (90 VUs / 42.8 req/s), that is at least **10× the users
-and 10.8× the throughput**.
+**Capacity: 900 VUs at 461.0 req/s (27,660 req/min)**, steady p50 66 ms / p95 318 ms / p99 458 ms, 0 % errors.
+The first failing level is **1500 VUs**. There the droplet is CPU-saturated at **≈ 600 req/s**: p50 667 ms, p95 1143 ms,
+p99 1263 ms, still 0 % errors. The real break point lies between 900 and 1500 VUs, likely around 1100–1200 VUs.
+Compared with v01-baseline-r2 (90 VUs / 42.8 req/s), that is **10× the users and 10.8× the throughput**.
 
-- **The pool removed the bottleneck.** CPU per request fell from about 20 ms to about **2.0–2.9 ms (7–10× cheaper)**.
+- **The pool removed the bottleneck.** CPU per request fell from about 20 ms to about **1.7–2.9 ms (7–12× cheaper)**.
   It gets cheaper as load rises because fixed overhead is spread over more requests. Postgres's share of CPU fell
   from about 60 % to about 50 %, because it no longer starts a backend and checks a SCRAM password for every request.
-- **The CPU ceiling is now close.** Average CPU: 58 % at 500 VUs, 79 % at 700, **91 % at 900** (Node 39 %,
-  Postgres 45 %). At 900 VUs, 27 of 140 one-second samples were ≥ 95 %. p50 rose from 30 ms to 66 ms, the first sign
-  of requests queueing on the server. The ceiling is about 500 req/s (≈ 2 ms CPU per request), so capacity is
-  probably around 950–1,000 VUs.
-- **Throughput still matched offered load** at every level (about 0.51–0.53 req/s per VU): 263 → 367 → 461 req/s.
-- **The p95/p99 tail does not follow server load.** From 400 to 900 VUs, CPU went from 51 % to 91 %, but p95 only
-  moved 284 → 233 → 282 → 318 ms and p99 stayed at 450–520 ms. Max actually *fell* (1.9 s at 500 → 0.7 s at 900).
-  The tail that appeared at 400 VUs is therefore mostly **not** server CPU. More likely it is the 10-connection pool
-  queue during bursts, or the load generator (k6 driving 400–900 VUs from a MacBook over home Wi-Fi). Only
-  server-side request timing can separate the two.
-- **Memory is flat.** Peak 472 MB used (489 MB still available) at 900 VUs. Node about 113 MB, Postgres about 108 MB
-  (10 long-lived backends). No swap. 900 open client sockets cost Node only about 10 MB more than 100 did.
-- **No errors** at any level. Postgres connections are capped at 10 by the pool.
-- **Next:** find where it breaks. Suggested levels: 1000 and 1100 (the user picks). Then add server-side timing
-  (e.g. a `Server-Timing` header) to explain the tail, before tuning the pool size.
+- **The ceiling is about 600 req/s, reached at about 1150–1200 VUs.** Average CPU: 58 % at 500 VUs, 79 % at 700,
+  91 % at 900, and **100 % at 1500** (Node 43 %, Postgres 50 %). In the 1500-VU ramp, CPU hit 100 % at about 50 s,
+  which is about 1200 VUs, and stayed there. Offered load at 1500 VUs is about 780 req/s, but only 599 req/s were
+  served. The ceiling is higher than the earlier ~500 req/s estimate because CPU per request keeps falling under load.
+- **Overload degrades gracefully: slow, not broken.** At 1500 VUs there were 0 errors, no timeouts and no crashes.
+  Requests queue on the single CPU, and every endpoint lands on the same p95 (1100–1134 ms). Because k6 users wait
+  for each response, the queue limits itself. Latency settles at about 1.1–1.3 s instead of growing without bound.
+- **The p95/p99 tail below saturation does not follow server load.** From 400 to 900 VUs, CPU went from 51 % to 91 %,
+  but p95 only moved 284 → 233 → 282 → 318 ms and p99 stayed at 450–520 ms. That tail is mostly **not** server CPU.
+  More likely it is the 10-connection pool queue during bursts, or the load generator (k6 driving 400–900 VUs from a
+  MacBook over home Wi-Fi). Only server-side request timing can separate the two.
+- **Memory is still not a factor.** Peak 497 MB used (464 MB still available) at 1500 VUs. Node about 134 MB with
+  1500 open sockets, Postgres about 109 MB (10 backends). No swap.
+- **Next:** pin the break point between 900 and 1500 VUs. Suggested levels: 1100 and 1200 (the user picks).
+  Then add server-side timing, and try pool sizes or cutting per-request CPU, e.g. single-statement writes or
+  turning off ETag, to raise the ~600 req/s ceiling.
 
 ## What changed vs. the previous tag
 Parent: `node-express-v01-baseline-r2`. One change: **`pg.Pool` with default settings (max 10)** instead of a new
@@ -41,7 +42,7 @@ Parent: `node-express-v01-baseline-r2`. One change: **`pg.Pool` with default set
 - Load generator: MacBook on home Wi-Fi (`macbook-home-wifi`), k6 v2.3.0, ~40 ms RTT to the droplet
 
 ## Results
-Levels chosen by the user: 100, 150, 200; then 400, 500; then 700 → 900 (fallbacks 600/800 were not needed because both passed).
+Levels chosen by the user: 100, 150, 200; then 400, 500; then 700 → 900 (fallbacks 600/800 were not needed because both passed); then 1500.
 
 | VUs | Result | Steady req/s | p50 ms | p95 ms | p99 ms | Max ms | Error % | CPU % (app / PG) | App MB | PG MB | Used MB |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -52,6 +53,7 @@ Levels chosen by the user: 100, 150, 200; then 400, 500; then 700 → 900 (fallb
 | 500 | PASS | 263.1 | 30 | 233 | 520 | 1900 | 0.00 | 57.8 (25.8 / 25.5) | 109 | 103 | 458 |
 | 700 | PASS | 367.0 | 30 | 282 | 494 | 683 | 0.00 | 78.6 (33.9 / 36.9) | 110 | 106 | 464 |
 | **900** | **PASS** | **461.0** | **66** | **318** | **458** | 746 | 0.00 | 91.3 (39.0 / 45.3) | 113 | 108 | 472 |
+| 1500 | FAIL (p50, p95, p99) | 598.9 | 667 | 1143 | 1263 | 1378 | 0.00 | 100.0 (43.1 / 50.1) | 134 | 109 | 497 |
 
 Same 100 VUs vs. v01-baseline-r2: 53.3 vs. 43.7 req/s, p95 46 vs. 890 ms, CPU 18 % vs. 98 %.
 
@@ -66,6 +68,6 @@ Same 100 VUs vs. v01-baseline-r2: 53.3 vs. 43.7 req/s, p95 46 vs. 890 ms, CPU 18
   and in p99/max, not in p50.
 
 ## Next idea
-Push `node-express-v02-pool` to 1000 / 1100 VUs (user to choose) to find the break point. Then add server-side
+Pin the break point between 900 and 1500 VUs (user to choose, e.g. 1100 / 1200). Then add server-side
 timing and test pool sizes (5 / 20) to explain the p95/p99 tail.
 Then try `node-express-v03-pool-size` (vary max 5 / 20) to see whether the pool queue causes the p99 tail.
