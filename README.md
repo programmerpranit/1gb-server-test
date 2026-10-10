@@ -19,7 +19,7 @@ the highest passing VU level tested; this table is updated automatically. Every 
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | node-express-v01-baseline | node-express | baseline: no pool, new connection per request (old criteria, no search) | < 100 | 100 | - | - | - | - | - | - | - | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v01-baseline) |
 | node-express-v01-baseline-r2 | node-express | baseline: no pool, new connection per request | 90 | 100 | 42.8 | 2569 | 234.4 | 658.5 | 979.8 | 0 | 428 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v01-baseline-r2) |
-| node-express-v02-pool | node-express | pg.Pool with default settings (max 10) instead of a new connection per request | ≥ 500 | - | 263.1 | 15785 | 30.1 | 233.1 | 519.7 | 0 | 458 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v02-pool) |
+| node-express-v02-pool | node-express | pg.Pool with default settings (max 10) instead of a new connection per request | ≥ 900 | - | 461.0 | 27660 | 66.3 | 318.4 | 457.7 | 0 | 472 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v02-pool) |
 <!-- CAPACITY:END -->
 
 ## Findings
@@ -36,9 +36,10 @@ One analysis summary per tag; the full report (summary, configuration, results, 
   p99 261 ms); 100 VUs fails on latency (p95 890 ms) at a ~44 req/s CPU ceiling. ~20 ms CPU per request, ~60 % of
   it in Postgres (connection setup). Memory ≤ 487 MB. Repeatable vs. v01 within 2 % throughput.
   [Report](results/node-express-v01-baseline-r2/config.md)
-- **node-express-v02-pool** — `pg.Pool` defaults (max 10). **All levels passed: ≥ 500 VUs / 263.1 req/s** (p95 233 ms,
-  p99 520 ms, 0 % errors) — ≥ 5.5× users, 6.1× throughput vs. v01-r2. CPU per request ~20 ms → ~2.2 ms; only ~58 %
-  CPU at 500 VUs. Latency spreads from 400 VUs without CPU saturation (cause not yet isolated). Limit not found yet. [Report](results/node-express-v02-pool/config.md)
+- **node-express-v02-pool** — `pg.Pool` defaults (max 10). **All levels passed: ≥ 900 VUs / 461.0 req/s** (p95 318 ms,
+  p99 458 ms, 0 % errors) — ≥ 10× users, 10.8× throughput vs. v01-r2. CPU per request ~20 ms → ~2 ms; CPU 91 % at
+  900 VUs, so the ceiling (~500 req/s) is near. The p95/p99 tail from 400 VUs does not track CPU (likely pool queue
+  or load generator). Memory 472 MB peak. [Report](results/node-express-v02-pool/config.md)
 
 ## All runs
 
@@ -67,6 +68,8 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 | node-express-v02-pool | node-express | 200 | PASS | 106.3 | 6378 | 9678 | 37.8 | 44.2 | 55.3 | 287.5 | 737 | 0 | 104 | 89 | 443 | 0 | 30.5 | 0.6 | macbook-home-wifi |
 | node-express-v02-pool | node-express | 400 | PASS | 209.4 | 12565 | 19031 | 40.3 | 163.2 | 284.4 | 446.7 | 644 | 0 | 107 | 100 | 454 | 0 | 50.9 | 0.9 | macbook-home-wifi |
 | node-express-v02-pool | node-express | 500 | PASS | 263.1 | 15785 | 23975 | 30.1 | 127.2 | 233.1 | 519.7 | 1900 | 0 | 109 | 103 | 458 | 0 | 57.8 | 0.3 | macbook-home-wifi |
+| node-express-v02-pool | node-express | 700 | PASS | 367.0 | 22020 | 33613 | 29.6 | 126.9 | 281.8 | 493.7 | 683 | 0 | 110 | 106 | 464 | 0 | 78.6 | 1.4 | macbook-home-wifi |
+| node-express-v02-pool | node-express | 900 | PASS | 461.0 | 27660 | 42235 | 66.3 | 259.4 | 318.4 | 457.7 | 746 | 0 | 113 | 108 | 472 | 0 | 91.3 | 0.6 | macbook-home-wifi |
 <!-- RESULTS:END -->
 
 ## Reproducing
