@@ -296,7 +296,7 @@ def capacity(tag_dir, crit, readme):
     if ref and readme:
         lat = ref["steady_latency_ms"]
         row = [cap["tag"], ref["stack"], (ref.get("bench") or {}).get("change", "-"),
-               str(cap["capacity_vus"]) if best else "< " + str(runs[0]["vus"]),
+               ("≥ " if first_fail is None else "") + str(cap["capacity_vus"]) if best else "< " + str(runs[0]["vus"]),
                str(first_fail) if first_fail else "-",
                fmt(ref["steady_rps"]) if best else "-", fmt(ref["steady_rpm"], 0) if best else "-",
                fmt(lat["med"]) if best else "-", fmt(lat["p(95)"]) if best else "-",
