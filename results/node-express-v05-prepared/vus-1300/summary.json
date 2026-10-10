@@ -1,0 +1,146 @@
+{
+  "tag": "node-express-v05-prepared",
+  "stack": "node-express",
+  "vus": 1300,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791650515,
+  "loadgen": "do-blr1-loadgen-4vcpu-8gb",
+  "loadgen_nofile": "1048576",
+  "git_sha": "f7166fe",
+  "k6_version": "k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)",
+  "date": "2026-10-10T16:44:16Z",
+  "total_requests": 59537,
+  "avg_rps": 482.03773053360646,
+  "steady_requests": 37984,
+  "steady_rps": 633.0666666666667,
+  "steady_rpm": 37984.0,
+  "vus_max": 1300,
+  "iterations": 53319,
+  "error_rate_pct": 0,
+  "steady_error_rate_pct": 0,
+  "latency_ms": {
+    "avg": 151.3918678806107,
+    "med": 110.793089,
+    "p(90)": 326.2818046,
+    "p(95)": 393.7903816,
+    "p(99)": 786.41942696,
+    "max": 913.821456
+  },
+  "steady_latency_ms": {
+    "avg": 211.3724225510207,
+    "med": 199.85416249999997,
+    "p(90)": 367.6223189000001,
+    "p(95)": 445.24360499999995,
+    "p(99)": 812.88334766,
+    "max": 913.821456
+  },
+  "per_endpoint_p95_ms": {
+    "GET /users/:id/posts": 388.58657564999993,
+    "GET /posts/:id": 407.91008650000003,
+    "POST /posts/:id/comments": 389.16201114999996,
+    "GET /posts": 390.3031249,
+    "DELETE /posts/:id/like": 395.5282567999997,
+    "GET /me/posts": 383.96328439999996,
+    "POST /posts": 412.2709938999999,
+    "POST /posts/:id/like": 398.8922517999999
+  },
+  "server_timing_ms": {
+    "total": {
+      "med": 176.7,
+      "p(95)": 422.1,
+      "p(99)": 779.8169999999998,
+      "max": 891.9
+    },
+    "conn": {
+      "med": 161.2,
+      "p(95)": 405.3849999999998,
+      "p(99)": 760.2339999999997,
+      "max": 862
+    },
+    "db": {
+      "med": 12.4,
+      "p(95)": 29.884999999999852,
+      "p(99)": 45.916999999999824,
+      "max": 145.2
+    },
+    "app": {
+      "med": 0.2,
+      "p(95)": 0.6,
+      "p(99)": 1.8169999999998254,
+      "max": 11.2
+    }
+  },
+  "server_total_p95_by_endpoint_ms": {
+    "POST /posts/:id/like": 373.6,
+    "GET /posts/:id": 384.545,
+    "GET /users/:id/posts": 366.45999999999987,
+    "GET /me/posts": 360.44,
+    "GET /posts": 366.9,
+    "POST /posts": 385.5899999999996,
+    "DELETE /posts/:id/like": 370.4399999999999,
+    "POST /posts/:id/comments": 367.5049999999995
+  },
+  "server_timing_missing": 0,
+  "bench": {
+    "language": "JavaScript",
+    "runtime": "node",
+    "framework": "Express 5.3.0",
+    "db": "postgres",
+    "db_driver": "pg 8.23.1",
+    "db_pool": "pg.Pool defaults (max 10)",
+    "workers": 1,
+    "change": "prepared statements (pg named queries); parent v04"
+  },
+  "server_env": {
+    "app": "node-express",
+    "kernel": "6.8.0-142-generic",
+    "os": "Ubuntu 24.04.5 LTS",
+    "nproc": "1",
+    "mem_total_mb": "961",
+    "node": "v24.21.0",
+    "python": "3.12.3",
+    "go": "",
+    "postgres": "16.15",
+    "swap_mb": "0",
+    "shared_buffers": "128MB",
+    "max_connections": "100",
+    "mem_avail_mb_idle": "627"
+  },
+  "outside_ms": {
+    "med": 23.154162499999984,
+    "p(95)": 23.143604999999923
+  },
+  "server": {
+    "app_pss_mb_peak": 119.0,
+    "pg_pss_mb_peak": 113.0,
+    "mem_used_mb_peak": 483.0,
+    "mem_avail_mb_min": 478.0,
+    "swap_used_mb_peak": 0.0,
+    "cpu_total_pct_avg_steady": 99.28333333333333,
+    "cpu_steal_pct_avg_steady": 0.7033333333333334,
+    "app_cpu_pct_avg_steady": 48.28,
+    "pg_cpu_pct_avg_steady": 43.51166666666668,
+    "app_conns_peak": 1300.0,
+    "load1_peak": 2.23
+  },
+  "loadgen_stats": {
+    "lg_cpu_pct_avg_steady": 21.365000000000002,
+    "lg_cpu_pct_peak": 64.7,
+    "k6_rss_mb_peak": 700.0,
+    "lg_mem_used_mb_peak": 1115.0
+  },
+  "cpu_ms_per_req_steady": 1.5682919123841614,
+  "cpu_probe_ms": {
+    "before": null,
+    "after": null
+  },
+  "pass": true,
+  "fail_reasons": [],
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  }
+}

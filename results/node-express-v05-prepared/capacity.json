@@ -1,0 +1,61 @@
+{
+  "tag": "node-express-v05-prepared",
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  },
+  "capacity_vus": 1400,
+  "first_fail_vus": 1500,
+  "levels_tested": [
+    {
+      "vus": 1000,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "vus": 1300,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "vus": 1400,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "vus": 1500,
+      "pass": false,
+      "fail_reasons": [
+        "p99 1168>=1000ms"
+      ]
+    }
+  ],
+  "at_capacity": {
+    "steady_rps": 645.1166666666667,
+    "steady_rpm": 38707.0,
+    "steady_latency_ms": {
+      "avg": 320.22167837161396,
+      "med": 319.714086,
+      "p(90)": 605.8430238000001,
+      "p(95)": 675.8437461999999,
+      "p(99)": 801.45836352,
+      "max": 890.969117
+    },
+    "error_rate_pct": 0,
+    "server": {
+      "app_pss_mb_peak": 127.0,
+      "pg_pss_mb_peak": 114.0,
+      "mem_used_mb_peak": 493.0,
+      "mem_avail_mb_min": 468.0,
+      "swap_used_mb_peak": 0.0,
+      "cpu_total_pct_avg_steady": 99.05999999999997,
+      "cpu_steal_pct_avg_steady": 0.9100000000000001,
+      "app_cpu_pct_avg_steady": 47.64333333333334,
+      "pg_cpu_pct_avg_steady": 43.518333333333345,
+      "app_conns_peak": 1400.0,
+      "load1_peak": 2.2
+    }
+  }
+}

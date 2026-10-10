@@ -89,10 +89,14 @@ scripts/
   release.sh --update <tag>   after adding VU levels to a released tag: push results, refresh release assets/notes
   report_html.py <tag_dir>    results/<tag>/report.html: summary, levels table, charts (k6 2-s snapshots decoded
                               from k6_report.html, server + load-gen samples); run by release.sh, attached to the release
+  profile.sh <vus> [label]    profiling run (NOT official): perf system-wide + V8 --cpu-prof -> profiles/<date>-<label>/
+  cpuprofile_summary.py       V8 .cpuprofile -> self time by category / function (used by profile.sh)
   readme_analysis.py          copies every tag's What changed / Summary / Observations / Next idea from
                               results/<tag>/config.md into README "Analysis per configuration"; run by release.sh
   server/                     scripts executed ON the droplet via `ssh bash -s`
     setup.sh  seed.sh  reset_db.sh  install_app.sh  prepare_run.sh  collect_metrics.sh
+    cpu_probe.sh              host-speed probe: fixed CPU workload timed before and after every run
+profiles/                     text reports of profiling runs (perf by process/dso/symbol, V8 profile summary)
 data/                         generated CSVs (git-ignored); data/meta.json is tracked (load test needs the counts)
 ```
 
@@ -216,6 +220,11 @@ From the server (`server_metrics.csv`, 1 s samples by `collect_metrics.sh`): CPU
 **steal** %, app CPU % and Postgres CPU % (cgroup), memory used / available, swap used, app PSS MB, Postgres PSS MB,
 established connections on the app port, load average.
 
+Host speed: the shared vCPU's speed varies ±20–30 % without showing as steal. `cpu_probe.sh` times a fixed workload
+(median of 15 × ≈ 80 ms) right before and after k6 (`cpu_probe_before_ms` / `cpu_probe_after_ms`, higher = slower
+host), and `cpu_ms_per_req_steady` = steady CPU % × 10 / steady req/s. Compare CPU per request between tags only
+with similar probe values.
+
 `summarize.py` reduces both into `summary.json` / `summary.md`, judges pass/fail, and upserts the run into README's
 "All runs" table and into **`results/results.csv`** — one row per (tag, VUs) with ~75 columns: run identity, verdict
 and criteria, stack (language, runtime + version, framework, DB + version, driver, pool, workers, change — from
@@ -310,7 +319,12 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
       BEGIN/2 queries/COMMIT (≈ 30 % fewer queries). No measurable gain at the ceiling: 1400 pass (marginal) but
       1300/1350 fail; same 540–660 req/s band as v02. Kept as parent. Lesson: at 100 % CPU single runs swing ±60 req/s;
       include an unsaturated level (1000 VUs) to compare CPU per request.
-- [ ] **`node-express-v05-prepared`** (parent v04) — named queries (`pg` prepared statements).
+- [x] **`node-express-v05-prepared`** (parent v04) — named queries (`pg` prepared statements). Capacity 1400 VUs /
+      645 req/s; Postgres CPU share ≈ 43.5 % (was ≈ 50 %); likely 5–10 % gain, within noise. Found host-speed
+      variance (one run ≈ 30 % faster, no steal) → added `cpu_probe.sh` + `cpu_ms_per_req_steady`.
+- [x] Profile of v05 at 1000 VUs (`profiles/2026-10-10-node-express-v05-1000vus/`): Node 44 % / Postgres 35 % /
+      idle 14 %; Memoize setup in feed queries ≈ 10 % of Postgres CPU; Express + router ≈ 24 % of Node JS time.
+- [ ] **`node-express-v06-no-memoize`** (parent v05) — `enable_memoize = off`.
 - VU levels are chosen by the user for every run.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
