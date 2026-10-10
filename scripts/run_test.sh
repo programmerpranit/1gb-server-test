@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
-# Find the capacity of one configuration: run the 2-minute stress test up a VU ladder, then
-# binary-search between the last passing and first failing level.
+# Run the 2-minute stress test for one configuration at the VU levels given (manual mode, default),
+# or search for its capacity automatically (--search).
 #
-# Usage: scripts/run_test.sh <tag> [vus...]
-#   e.g. scripts/run_test.sh node-express-v01-baseline 100 250 500 1000
+# Usage: scripts/run_test.sh <tag> <vus...>            run exactly these levels, in order, each one regardless of failures
+#        scripts/run_test.sh --search <tag> [vus...]   climb the ladder (default VU_LADDER), then bisect
+#   e.g. scripts/run_test.sh node-express-v02-pool 100 150 200
+#
+# Levels already run for the tag are kept; re-running a level overwrites it. Capacity = highest passing level
+# across all levels run for the tag.
 #
 # For each VU level:
 #   1. server: stop app, fresh DB clone, restart Postgres, drop caches, start app  (prepare_run.sh)
@@ -12,13 +16,19 @@
 #   4. local:  summarize, judge pass/fail, upsert README row + results/results.csv (summarize.py)
 #
 # Pass = steady p50 < PASS_P50_MS, p95 < PASS_P95_MS, p99 < PASS_P99_MS and whole-run error % < PASS_ERROR_PCT.
-# Search: climb the ladder until a level fails, then bisect (lo=last pass or 0, hi=first fail),
-# rounding to SEARCH_STEP (10) VUs, until hi - lo <= SEARCH_STEP. Capacity = highest passing level.
+# --search: climb the ladder until a level fails, then bisect (lo=last pass or 0, hi=first fail),
+# rounding to SEARCH_STEP (10) VUs, until hi - lo <= SEARCH_STEP.
 source "$(dirname "$0")/lib.sh"
 
-TAG="${1:?usage: run_test.sh <tag> [vus...]}"; shift
+SEARCH=0
+[[ "${1:-}" == "--search" ]] && { SEARCH=1; shift; }
+TAG="${1:?usage: run_test.sh [--search] <tag> <vus...>}"; shift
 VUS_LIST=("$@")
-[[ ${#VUS_LIST[@]} -gt 0 ]] || read -r -a VUS_LIST <<< "${VU_LADDER:-100 250 500 1000 2000}"
+if [[ ${#VUS_LIST[@]} -eq 0 ]]; then
+  [[ $SEARCH == 1 ]] || { echo "usage: run_test.sh <tag> <vus...>   (VU levels are required; or use --search)"; exit 1; }
+  read -r -a VUS_LIST <<< "${VU_LADDER:-100 250 500 1000 2000}"
+fi
+for v in "${VUS_LIST[@]}"; do [[ "$v" =~ ^[1-9][0-9]*$ ]] || { echo "invalid VU level: $v"; exit 1; }; done
 RAMP_S="${RAMP_S:-60}"; HOLD_S="${HOLD_S:-60}"
 PASS_P50_MS="${PASS_P50_MS:-500}"
 PASS_P95_MS="${PASS_P95_MS:-800}"
@@ -97,15 +107,20 @@ EOF
   log "[$TAG] $VUS VUs — $([[ "$LAST_PASS" == 1 ]] && echo PASS || echo "FAIL ($(echo "$OUT" | sed -n 's/^fail_reasons=//p'))")"
 }
 
-# 1. climb
+if [[ $SEARCH == 0 ]]; then
+  # Manual: run every requested level.
+  for VUS in "${VUS_LIST[@]}"; do run_level "$VUS"; done
+fi
+
+# --search 1. climb
 LO=0; HI=""
-for VUS in "${VUS_LIST[@]}"; do
+[[ $SEARCH == 1 ]] && for VUS in "${VUS_LIST[@]}"; do
   run_level "$VUS"
   if [[ "$LAST_PASS" == 1 ]]; then LO=$VUS; else HI=$VUS; break; fi
 done
 
-# 2. bisect between last pass and first fail
-if [[ -n "$HI" ]]; then
+# --search 2. bisect between last pass and first fail
+if [[ $SEARCH == 1 && -n "$HI" ]]; then
   while (( HI - LO > SEARCH_STEP )); do
     MID=$(( ( (LO + HI) / 2 + SEARCH_STEP / 2 ) / SEARCH_STEP * SEARCH_STEP ))
     (( MID <= LO || MID >= HI )) && break
@@ -114,5 +129,6 @@ if [[ -n "$HI" ]]; then
   done
 fi
 
-python3 -I "$REPO_ROOT/scripts/summarize.py" --capacity "$TAG_DIR" "${CRITERIA[@]}" --readme "$REPO_ROOT/README.md"
-log "Done. Capacity: $LO VUs (first failing level: ${HI:-none}). Fill results/$TAG/config.md, then: scripts/release.sh $TAG"
+CAP="$(python3 -I "$REPO_ROOT/scripts/summarize.py" --capacity "$TAG_DIR" "${CRITERIA[@]}" --readme "$REPO_ROOT/README.md")"
+echo "$CAP"
+log "Done. $CAP — fill results/$TAG/config.md, then: scripts/release.sh $TAG"

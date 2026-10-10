@@ -9,9 +9,9 @@ as a GitHub release with its code and raw results. Methodology, API contract and
 ## Capacity per configuration
 
 A run **passes** when, during the 60 s steady phase, **p50 < 500 ms, p95 < 800 ms and p99 < 1000 ms**, and the
-whole-run **error rate is < 1 %**. `scripts/run_test.sh` climbs the VU ladder until a level fails, then
-binary-searches (10-VU resolution) between the last pass and the first fail. **Capacity** is the highest passing
-VU level; this table is updated automatically. Every run's full data point set is in
+whole-run **error rate is < 1 %**. VU levels for each configuration are chosen by hand
+(`scripts/run_test.sh <tag> <vus...>`; an automatic ladder + bisection exists behind `--search`). **Capacity** is
+the highest passing VU level tested; this table is updated automatically. Every run's full data point set is in
 [`results/results.csv`](results/results.csv).
 
 <!-- CAPACITY:START -->

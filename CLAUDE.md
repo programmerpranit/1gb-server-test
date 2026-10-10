@@ -82,7 +82,7 @@ scripts/
   provision.sh                one-time droplet setup (runs server/setup.sh)
   seed_db.sh                  upload CSVs + schema, build bench_seed template (runs server/seed.sh)
   deploy.sh <stack>           rsync apps/<stack>, build, install + restart bench-app
-  run_test.sh <tag> [vus..]   capacity search for one configuration (ladder + bisection)
+  run_test.sh <tag> <vus..>   run one configuration at the given VU levels (--search: ladder + bisection)
   summarize.py <run_dir>      k6 + server metrics -> pass/fail, summary, README row, results.csv row
   release.sh <tag>            commit results, git tag, GitHub release with build + results
   server/                     scripts executed ON the droplet via `ssh bash -s`
@@ -174,11 +174,14 @@ Tool: [k6](https://k6.io) (`brew install k6` on macOS; on Ubuntu follow
 - **Pass criteria (per run):** steady-phase **p50 < 500 ms, p95 < 800 ms, p99 < 1000 ms**, and whole-run
   **error rate < 1 %**. All four must hold. Configurable via `PASS_P50_MS`, `PASS_P95_MS`, `PASS_P99_MS`,
   `PASS_ERROR_PCT` in `.env` (changing them is a protocol change — note it).
-- **Capacity search:** climb the ladder `100 250 500 1000 2000` (`VU_LADDER`, override per run) until a level fails,
+- **VU levels are chosen by the user (manual mode, default).** `scripts/run_test.sh <tag> <vus...>` runs exactly
+  those levels, each with a full reset, and does not stop on failures. **Claude must not pick or add VU levels on its
+  own** — ask the user which levels to run (Claude may suggest some).
+- **Capacity search (optional, `--search`):** climb the ladder `100 250 500 1000 2000` (`VU_LADDER`, override per run) until a level fails,
   then binary-search between the last passing level (or 0) and the first failing one, rounded to `SEARCH_STEP`
   (10) VUs, until the gap is ≤ 10. Example: 100 pass, 250 fail → 180 → 140 or 220 → ... Full reset between levels.
   A pass within ~5 % of a limit is "marginal" — call it out in the report summary.
-- **Capacity:** the highest passing VU level, with its steady req/s. This is the headline number
+- **Capacity:** the highest passing VU level run for the tag, with its steady req/s. This is the headline number
   (`results/<tag>/capacity.json`, README "Capacity per configuration").
 - At ~2 s per iteration, N VUs produce roughly N/2 req/s offered load (a bit more with feed scrolling).
 
@@ -213,7 +216,7 @@ After the search, `summarize.py --capacity` writes `capacity.json` and upserts R
 # 1. change exactly one thing in apps/<stack>/ (or server config), commit it
 scripts/deploy.sh <stack>
 # 2. run the ladder (creates results/<tag>/config.md from the template on first run)
-scripts/run_test.sh <stack>-vNN-<slug>            # or pass explicit VU levels
+scripts/run_test.sh <stack>-vNN-<slug> 100 150 200   # VU levels chosen by the user
 # 3. fill results/<tag>/config.md (what changed, observations, next idea)
 # 4. update README headline row, then
 scripts/release.sh <stack>-vNN-<slug>
