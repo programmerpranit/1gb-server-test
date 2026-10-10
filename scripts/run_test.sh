@@ -12,7 +12,8 @@
 # For each VU level:
 #   1. server: stop app, fresh DB clone, restart Postgres, drop caches, start app  (prepare_run.sh)
 #   2. server: start 1s resource sampler in the background                         (collect_metrics.sh)
-#   3. local:  k6 ramp 0->VUS in 60s, hold 60s                                      (loadtest/stress.js)
+#   3. k6 ramp 0->VUS in 60s, hold 60s (loadtest/stress.js) — on the load-generator droplet when LOADGEN_HOST
+#      is set (live dashboard tunnelled to http://localhost:DASHBOARD_PORT), otherwise locally
 #   4. local:  summarize, judge pass/fail, upsert README row + results/results.csv (summarize.py)
 #
 # Pass = steady p50 < PASS_P50_MS, p95 < PASS_P95_MS, p99 < PASS_P99_MS and whole-run error % < PASS_ERROR_PCT.
@@ -39,7 +40,9 @@ TAG_DIR="$REPO_ROOT/results/$TAG"
 META="$REPO_ROOT/data/meta.json"
 CRITERIA=(--p50 "$PASS_P50_MS" --p95 "$PASS_P95_MS" --p99 "$PASS_P99_MS" --error-pct "$PASS_ERROR_PCT")
 
-command -v k6 >/dev/null || { echo "k6 not installed (brew install k6)"; exit 1; }
+if [[ -z "$LOADGEN_HOST" ]]; then
+  command -v k6 >/dev/null || { echo "k6 not installed (brew install k6)"; exit 1; }
+fi
 [[ -f "$META" ]] || { echo "data/meta.json missing — run scripts/seed_db.sh first"; exit 1; }
 meta() { python3 -I -c "import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])" "$META" "$1"; }
 
@@ -51,9 +54,49 @@ if [[ ! -f "$TAG_DIR/config.md" ]]; then
 fi
 
 # k6 holds ~1 socket per VU; the load generator must not be the bottleneck.
-ulimit -n 65535 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
-LOADGEN_NOFILE="$(ulimit -n)"
+if [[ -n "$LOADGEN_HOST" ]]; then
+  LOADGEN_NOFILE="$(loadgen 'ulimit -n 1048576 2>/dev/null; ulimit -n')"
+  K6_VERSION_STR="$(loadgen 'k6 version | head -1')"
+  loadgen "mkdir -p /opt/loadgen/runs"
+  # Live dashboard: k6 listens on the load generator's localhost only; reach it through an SSH tunnel.
+  if lsof -ti "tcp:$DASHBOARD_PORT" >/dev/null 2>&1; then
+    log "WARNING: local port $DASHBOARD_PORT is busy — live dashboard tunnel not opened"
+  else
+    ssh "${SSH_OPTS[@]}" -o ExitOnForwardFailure=yes -N -L "$DASHBOARD_PORT:127.0.0.1:5665" "$LOADGEN_TARGET" &
+    TUNNEL_PID=$!
+    trap 'kill $TUNNEL_PID 2>/dev/null || true' EXIT
+    log "Live dashboard (while k6 runs): http://localhost:$DASHBOARD_PORT"
+  fi
+else
+  ulimit -n 65535 2>/dev/null || ulimit -n "$(ulimit -Hn)" 2>/dev/null || true
+  LOADGEN_NOFILE="$(ulimit -n)"
+  K6_VERSION_STR="$(k6 version | head -1)"
+fi
 (( LOADGEN_NOFILE >= 4096 )) || log "WARNING: ulimit -n is $LOADGEN_NOFILE — high VU levels will fail on the load generator"
+
+# Runs k6 for one level, leaving k6_summary.json, k6_start.json, k6_report.html, k6_stdout.txt in RUN_DIR.
+run_k6() {
+  local VUS="$1" RUN_DIR="$2"
+  local K6_ARGS=(-e BASE_URL="$BASE_URL" -e VUS="$VUS" -e RAMP_S="$RAMP_S" -e HOLD_S="$HOLD_S"
+                 -e USER_COUNT="$(meta USER_COUNT)" -e AUTHOR_COUNT="$(meta AUTHOR_COUNT)" -e POST_COUNT="$(meta POST_COUNT)")
+  if [[ -z "$LOADGEN_HOST" ]]; then
+    K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$RUN_DIR/k6_report.html" K6_WEB_DASHBOARD_PORT=-1 \
+    k6 run --quiet "${K6_ARGS[@]}" -e OUT_DIR="$RUN_DIR" "$REPO_ROOT/loadtest/stress.js" > "$RUN_DIR/k6_stdout.txt" 2>&1 || true
+    return
+  fi
+  local RDIR="/opt/loadgen/runs/$TAG/vus-$VUS"
+  loadgen "rm -rf '$RDIR' && mkdir -p '$RDIR'"
+  scp -q "${SSH_OPTS[@]}" "$REPO_ROOT/loadtest/stress.js" "$LOADGEN_TARGET:$RDIR/stress.js"
+  # Load-generator CPU/memory, to prove k6 itself was not the bottleneck.
+  loadgen_script "$REPO_ROOT/scripts/server/loadgen_metrics.sh" "$((RAMP_S + HOLD_S + 15))" > "$RUN_DIR/loadgen_metrics.csv" &
+  local LG_PID=$!
+  local QUOTED; printf -v QUOTED '%q ' "${K6_ARGS[@]}"
+  loadgen "cd '$RDIR' && ulimit -n 1048576 && K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_HOST=127.0.0.1 \
+    K6_WEB_DASHBOARD_PORT=5665 K6_WEB_DASHBOARD_PERIOD=2s K6_WEB_DASHBOARD_EXPORT='$RDIR/k6_report.html' \
+    k6 run --quiet $QUOTED -e OUT_DIR='$RDIR' stress.js" > "$RUN_DIR/k6_stdout.txt" 2>&1 || true
+  wait "$LG_PID" || true
+  scp -q "${SSH_OPTS[@]}" "$LOADGEN_TARGET:$RDIR/{k6_summary.json,k6_start.json,k6_report.html}" "$RUN_DIR/" || true
+}
 
 STACK="$(remote cat /opt/bench/CURRENT_APP 2>/dev/null || echo unknown)"
 remote cat /opt/bench/app/bench.json > "$TAG_DIR/bench.json" 2>/dev/null || echo '{}' > "$TAG_DIR/bench.json"
@@ -73,11 +116,7 @@ run_level() {
 
   local K6_STARTED_AT; K6_STARTED_AT=$(date +%s)
   log "[$TAG] $VUS VUs — k6 running (${RAMP_S}s ramp + ${HOLD_S}s hold)"
-  K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$RUN_DIR/k6_report.html" K6_WEB_DASHBOARD_PORT=-1 \
-  k6 run --quiet \
-    -e BASE_URL="$BASE_URL" -e VUS="$VUS" -e RAMP_S="$RAMP_S" -e HOLD_S="$HOLD_S" -e OUT_DIR="$RUN_DIR" \
-    -e USER_COUNT="$(meta USER_COUNT)" -e AUTHOR_COUNT="$(meta AUTHOR_COUNT)" -e POST_COUNT="$(meta POST_COUNT)" \
-    "$REPO_ROOT/loadtest/stress.js" > "$RUN_DIR/k6_stdout.txt" 2>&1 || true
+  run_k6 "$VUS" "$RUN_DIR"
 
   wait "$SAMPLER_PID" || true
   remote "journalctl -u bench-app --since '-3min' --no-pager | tail -200" > "$RUN_DIR/app_log_tail.txt" 2>&1 || true
@@ -94,7 +133,7 @@ run_level() {
   "loadgen": "$LOADGEN_LABEL",
   "loadgen_nofile": "$LOADGEN_NOFILE",
   "git_sha": "$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo none)",
-  "k6_version": "$(k6 version | head -1)",
+  "k6_version": "$K6_VERSION_STR",
   "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF

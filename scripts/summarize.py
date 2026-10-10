@@ -68,6 +68,8 @@ CSV_COLUMNS = [
     "srv_total_p50_ms", "srv_total_p95_ms", "srv_total_p99_ms", "srv_conn_p50_ms", "srv_conn_p95_ms", "srv_conn_p99_ms",
     "srv_db_p50_ms", "srv_db_p95_ms", "srv_db_p99_ms", "srv_app_p50_ms", "srv_app_p95_ms", "srv_app_p99_ms",
     "outside_p50_ms", "outside_p95_ms", "server_timing_missing",
+    # load generator (is k6 itself a bottleneck?)
+    "lg_cpu_pct_avg_steady", "lg_cpu_pct_peak", "k6_rss_mb_peak", "lg_mem_used_mb_peak",
     # server resources
     "app_pss_mb_peak", "pg_pss_mb_peak", "mem_used_mb_peak", "mem_avail_mb_min", "swap_used_mb_peak",
     "cpu_total_pct_avg_steady", "cpu_steal_pct_avg_steady", "app_cpu_pct_avg_steady", "pg_cpu_pct_avg_steady",
@@ -135,6 +137,25 @@ def server_stats(path, steady_from, steady_to):
         "pg_cpu_pct_avg_steady": avg("pg_cpu_pct", steady),
         "app_conns_peak": max(r["app_conns"] for r in rows),
         "load1_peak": max(r["load1"] for r in rows),
+    }
+
+
+def loadgen_stats(path, steady_from, steady_to):
+    rows = []
+    with open(path) as fh:
+        for r in csv.DictReader(fh):
+            try:
+                rows.append({k: float(v) for k, v in r.items()})
+            except (TypeError, ValueError):
+                continue
+    if not rows:
+        return {}
+    steady = [r for r in rows if steady_from <= r["ts"] <= steady_to] or rows
+    return {
+        "lg_cpu_pct_avg_steady": sum(r["lg_cpu_pct"] for r in steady) / len(steady),
+        "lg_cpu_pct_peak": max(r["lg_cpu_pct"] for r in rows),
+        "k6_rss_mb_peak": max(r["k6_rss_mb"] for r in rows),
+        "lg_mem_used_mb_peak": max(r["lg_mem_used_mb"] for r in rows),
     }
 
 
@@ -235,6 +256,8 @@ def summarize(run_dir, crit):
     steady_from = started + run["ramp_s"]
     metrics_csv = os.path.join(run_dir, "server_metrics.csv")
     s["server"] = server_stats(metrics_csv, steady_from, steady_from + hold_s) if os.path.exists(metrics_csv) else {}
+    lg_csv = os.path.join(run_dir, "loadgen_metrics.csv")
+    s["loadgen_stats"] = loadgen_stats(lg_csv, steady_from, steady_from + hold_s) if os.path.exists(lg_csv) else {}
 
     passed, reasons = judge(s, crit)
     s["pass"], s["fail_reasons"] = passed, reasons
@@ -264,7 +287,14 @@ def summarize(run_dir, crit):
         md.append(f"| {part} | {fmt(v['med'])} | {fmt(v['p(95)'])} | {fmt(v['p(99)'])} | {fmt(v['max'])} |")
     md += ["", f"Outside the app (client p − server total p): p50 {fmt(s['outside_ms']['med'])} ms, "
                f"p95 {fmt(s['outside_ms']['p(95)'])} ms. Responses without Server-Timing: {s['server_timing_missing']}.",
-           "", "## p95 by endpoint (ms, whole run: client / server total)", ""]
+           ""]
+    lg = s["loadgen_stats"]
+    if lg:
+        md += [f"Load generator: CPU {fmt(lg['lg_cpu_pct_avg_steady'])} % avg steady / {fmt(lg['lg_cpu_pct_peak'])} % peak "
+               f"(all vCPUs), k6 RSS {fmt(lg['k6_rss_mb_peak'], 0)} MB peak"
+               + (" — WARNING: load generator above 70 % CPU, k6 may be the bottleneck." if lg["lg_cpu_pct_peak"] > 70 else "."),
+               ""]
+    md += ["## p95 by endpoint (ms, whole run: client / server total)", ""]
     md += [f"- `{k}`: {fmt(v)} / {fmt(s['server_total_p95_by_endpoint_ms'].get(k))}"
            for k, v in sorted(s["per_endpoint_p95_ms"].items())]
     with open(os.path.join(run_dir, "summary.md"), "w") as fh:
@@ -299,6 +329,7 @@ def summarize(run_dir, crit):
            for part in ("total", "conn", "db", "app") for n, k in (("p50", "med"), ("p95", "p(95)"), ("p99", "p(99)"))},
         "outside_p50_ms": rnd(s["outside_ms"]["med"]), "outside_p95_ms": rnd(s["outside_ms"]["p(95)"]),
         "server_timing_missing": s["server_timing_missing"],
+        **{k: rnd(v) for k, v in s["loadgen_stats"].items()},
     }
     return s, row, record
 

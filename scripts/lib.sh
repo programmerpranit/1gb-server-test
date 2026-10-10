@@ -32,4 +32,19 @@ remote() {
   ssh "${SSH_OPTS[@]}" "$SSH_TARGET" "$@"
 }
 
+# Load-generator droplet (optional; when unset, k6 runs locally on the Mac).
+LOADGEN_HOST="${LOADGEN_HOST:-}"
+LOADGEN_USER="${LOADGEN_USER:-root}"
+LOADGEN_TARGET="$LOADGEN_USER@$LOADGEN_HOST"
+DASHBOARD_PORT="${DASHBOARD_PORT:-5665}"
+
+loadgen_script() {
+  local script="$1"; shift
+  ssh "${SSH_OPTS[@]}" "$LOADGEN_TARGET" "bash -s -- $*" < "$script"
+}
+
+loadgen() {
+  ssh "${SSH_OPTS[@]}" "$LOADGEN_TARGET" "$@"
+}
+
 log() { printf '\033[1;34m[%s]\033[0m %s\n' "$(date +%H:%M:%S)" "$*" >&2; }
