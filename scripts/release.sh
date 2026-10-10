@@ -34,7 +34,8 @@ LEVELS="$(python3 -I -c "import glob,re,sys; print(' '.join(sorted((re.search(r'
 git add "$TAG_DIR" README.md results/results.csv
 [[ -f CLAUDE.md ]] && git add CLAUDE.md
 MSG="results: $TAG"; [[ $UPDATE == 1 ]] && MSG="results: $TAG (levels $LEVELS)"
-git commit -m "$MSG" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" || true
+git commit -m "$MSG" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01NhgEjqV5ffFqEtCZcfWRbP" || true
 [[ $UPDATE == 0 ]] && git tag -a "$TAG" -m "Benchmark $TAG ($STACK)"
 git push origin HEAD
 [[ $UPDATE == 0 ]] && git push origin "$TAG"
