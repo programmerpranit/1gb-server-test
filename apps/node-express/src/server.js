@@ -1,8 +1,9 @@
 'use strict';
 
 // Implementation of the protocol v2 API (see CLAUDE.md "API contract").
-// Deliberately plain: Express defaults, one process, a pg.Pool with max 20 connections (other settings default) — every request
-// borrows one connection for all its queries and returns it when done. One query per step.
+// Deliberately plain: Express defaults, one process, a pg.Pool with default settings (max 10) — every request
+// borrows one connection for all its queries and returns it when done. Writes that touch two tables (like + counter,
+// comment + counter) are ONE statement with data-modifying CTEs: atomic without BEGIN/COMMIT, one round trip.
 // Every response carries a Server-Timing header: conn (pool wait), db (queries), app (the rest), total.
 
 const express = require('express');
@@ -12,7 +13,7 @@ const { Pool, types } = require('pg');
 types.setTypeParser(20, (v) => parseInt(v, 10));
 
 const PORT = Number(process.env.PORT || 3000);
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 20 });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 pool.on('error', (err) => console.error('pg pool error', err));
 
 const DEFAULT_LIMIT = 20;
@@ -103,7 +104,7 @@ function serverTiming(req, res, next) {
 // --- Database access ---------------------------------------------------------------------------------------------
 // One pooled connection per request, returned to the pool before the response is sent. `fn` receives a query
 // wrapper that adds each query's duration to req.timing.db; time waiting for a pooled connection (or opening a new
-// one while the pool fills) goes to req.timing.conn. A connection whose ROLLBACK failed is destroyed, not reused.
+// one while the pool fills) goes to req.timing.conn.
 async function withClient(req, fn) {
   const timing = req.timing;
   const connectStart = nowMs();
@@ -123,29 +124,11 @@ async function withClient(req, fn) {
       }
     },
   };
-  let broken;
   try {
     return await fn(db);
-  } catch (err) {
-    if (err.brokenConnection) broken = err;
-    throw err;
   } finally {
-    client.release(broken);
+    client.release();
   }
-}
-
-async function withTransaction(req, fn) {
-  return withClient(req, async (db) => {
-    await db.query('BEGIN');
-    try {
-      const result = await fn(db);
-      await db.query('COMMIT');
-      return result;
-    } catch (err) {
-      await db.query('ROLLBACK').catch(() => { err.brokenConnection = true; });
-      throw err;
-    }
-  });
 }
 
 const app = express();
@@ -224,46 +207,52 @@ app.post('/posts', requireUser, async (req, res) => {
 
 app.post('/posts/:id/like', requireUser, async (req, res) => {
   const postId = requireId(req.params.id);
-  const likeCount = await withTransaction(req, async (db) => {
-    const inserted = await db.query(
-      'INSERT INTO likes (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-      [postId, req.userId],
-    );
-    const { rows } = inserted.rowCount
-      ? await db.query('UPDATE posts SET like_count = like_count + 1 WHERE id = $1 RETURNING like_count', [postId])
-      : await db.query('SELECT like_count FROM posts WHERE id = $1', [postId]);
-    if (!rows[0]) throw new HttpError(404, 'not found');
-    return rows[0].like_count;
-  });
-  res.json({ liked: true, like_count: likeCount });
+  // Insert the like only if the post exists; bump the counter only if the like is new. The outer SELECT sees the
+  // snapshot from before the statement, so a new like's count comes from `upd`, an existing like's from `posts`.
+  const { rows } = await withClient(req, (db) => db.query(
+    `WITH ins AS (
+       INSERT INTO likes (post_id, user_id) SELECT id, $2::bigint FROM posts WHERE id = $1
+       ON CONFLICT DO NOTHING RETURNING post_id
+     ), upd AS (
+       UPDATE posts SET like_count = like_count + 1 FROM ins WHERE posts.id = ins.post_id RETURNING posts.like_count
+     )
+     SELECT COALESCE((SELECT like_count FROM upd), (SELECT like_count FROM posts WHERE id = $1)) AS like_count`,
+    [postId, req.userId],
+  ));
+  if (rows[0].like_count === null) throw new HttpError(404, 'not found');
+  res.json({ liked: true, like_count: rows[0].like_count });
 });
 
 app.delete('/posts/:id/like', requireUser, async (req, res) => {
   const postId = requireId(req.params.id);
-  const likeCount = await withTransaction(req, async (db) => {
-    const deleted = await db.query('DELETE FROM likes WHERE post_id = $1 AND user_id = $2', [postId, req.userId]);
-    const { rows } = deleted.rowCount
-      ? await db.query('UPDATE posts SET like_count = like_count - 1 WHERE id = $1 RETURNING like_count', [postId])
-      : await db.query('SELECT like_count FROM posts WHERE id = $1', [postId]);
-    if (!rows[0]) throw new HttpError(404, 'not found');
-    return rows[0].like_count;
-  });
-  res.json({ liked: false, like_count: likeCount });
+  const { rows } = await withClient(req, (db) => db.query(
+    `WITH del AS (
+       DELETE FROM likes WHERE post_id = $1 AND user_id = $2 RETURNING post_id
+     ), upd AS (
+       UPDATE posts SET like_count = like_count - 1 FROM del WHERE posts.id = del.post_id RETURNING posts.like_count
+     )
+     SELECT COALESCE((SELECT like_count FROM upd), (SELECT like_count FROM posts WHERE id = $1)) AS like_count`,
+    [postId, req.userId],
+  ));
+  if (rows[0].like_count === null) throw new HttpError(404, 'not found');
+  res.json({ liked: false, like_count: rows[0].like_count });
 });
 
 app.post('/posts/:id/comments', requireUser, async (req, res) => {
   const postId = requireId(req.params.id);
   const text = validText(req.body);
-  const comment = await withTransaction(req, async (db) => {
-    const { rows } = await db.query(
-      `INSERT INTO comments (post_id, user_id, text) VALUES ($1, $2, $3)
-       RETURNING id, post_id, user_id, text, created_at`,
-      [postId, req.userId, text],
-    );
-    await db.query('UPDATE posts SET comment_count = comment_count + 1 WHERE id = $1', [postId]);
-    return rows[0];
-  });
-  res.status(201).json({ comment });
+  // Unknown post or user fails the comments foreign keys (23503), as before.
+  const { rows } = await withClient(req, (db) => db.query(
+    `WITH c AS (
+       INSERT INTO comments (post_id, user_id, text) VALUES ($1, $2, $3)
+       RETURNING id, post_id, user_id, text, created_at
+     ), upd AS (
+       UPDATE posts SET comment_count = comment_count + 1 FROM c WHERE posts.id = c.post_id
+     )
+     SELECT * FROM c`,
+    [postId, req.userId, text],
+  ));
+  res.status(201).json({ comment: rows[0] });
 });
 
 app.use((req, res) => {
