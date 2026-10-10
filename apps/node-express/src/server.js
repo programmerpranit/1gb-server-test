@@ -4,6 +4,7 @@
 // Deliberately plain: Express defaults, one process, a pg.Pool with default settings (max 10) — every request
 // borrows one connection for all its queries and returns it when done. Writes that touch two tables (like + counter,
 // comment + counter) are ONE statement with data-modifying CTEs: atomic without BEGIN/COMMIT, one round trip.
+// Every query is a prepared statement (named query): each pooled connection parses and plans it once, then reuses it.
 // Every response carries a Server-Timing header: conn (pool wait), db (queries), app (the rest), total.
 
 const express = require('express');
@@ -102,6 +103,17 @@ function serverTiming(req, res, next) {
 }
 
 // --- Database access ---------------------------------------------------------------------------------------------
+// All SQL texts are constants, so each distinct text gets a stable statement name (q1, q2, ...).
+const statementNames = new Map();
+function statementName(text) {
+  let name = statementNames.get(text);
+  if (name === undefined) {
+    name = `q${statementNames.size + 1}`;
+    statementNames.set(text, name);
+  }
+  return name;
+}
+
 // One pooled connection per request, returned to the pool before the response is sent. `fn` receives a query
 // wrapper that adds each query's duration to req.timing.db; time waiting for a pooled connection (or opening a new
 // one while the pool fills) goes to req.timing.conn.
@@ -118,7 +130,7 @@ async function withClient(req, fn) {
     async query(text, params) {
       const start = nowMs();
       try {
-        return await client.query(text, params);
+        return await client.query({ name: statementName(text), text, values: params });
       } finally {
         timing.db += nowMs() - start;
       }
