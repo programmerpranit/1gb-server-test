@@ -1,16 +1,19 @@
 # node-express-v01-baseline-r2
 
 ## Summary
-**Capacity: 75 VUs at 39.1 req/s (2,345 req/min)**, steady p50 81 ms / p95 202 ms / p99 261 ms, 0 % errors.
-The first failing level is 100 VUs: 43.7 req/s, p95 890 ms and p99 1025 ms, still with 0 % errors.
+**Capacity: 90 VUs at 42.8 req/s (2,569 req/min)**, steady p50 234 ms / p95 659 ms / p99 980 ms, 0 % errors.
+This is a **marginal pass**: p99 was only 20 ms under the 1000 ms limit, and run-to-run p95 variance is about 8 %.
+75 VUs (39.1 req/s, p99 261 ms) is the comfortable level. The first failing level is 100 VUs: 43.7 req/s,
+p95 890 ms and p99 1025 ms, still with 0 % errors.
 
 - **Bottleneck: CPU, and most of it is Postgres connection setup.** CPU use grows in step with load: 52 % at
-  26 req/s, 78 % at 39 req/s, and 98 % at 44 req/s. That works out to about 20 ms of CPU per request: about 12 ms
+  26 req/s, 78 % at 39 req/s, 94 % at 43 req/s, and 98 % at 44 req/s. That works out to about 20 ms of CPU per request: about 12 ms
   in Postgres and about 7 ms in Node. Postgres takes roughly 60 % of all CPU at every level. The queries themselves
   are cheap, indexed lookups of 20 rows. Most of Postgres's CPU therefore goes to opening a new connection per
   request: starting a backend process and checking the SCRAM password.
-- **The ceiling is about 44 req/s.** Once the single vCPU is saturated, requests queue. Latency then jumps 4–5×
-  between 75 and 100 VUs (p95 202 → 890 ms) while throughput rises only 12 %.
+- **The ceiling is about 44 req/s.** Once the single vCPU is saturated, requests queue. From 75 to 90 VUs,
+  throughput rises 9 % (39.1 → 42.8 req/s) but p99 almost quadruples (261 → 980 ms). From 90 to 100 VUs,
+  throughput gains only 2 % more.
 - **Memory is not a constraint.** Peak use is 487 MB of 961 MB, with no swap. Node holds steady at about 106 MB.
   Postgres stays at 41–66 MB because connections are short-lived.
 - **No errors at or below 100 VUs.** In the earlier v01 run, errors only appeared at 250 VUs, when concurrent
@@ -37,12 +40,14 @@ Nothing in the app or server. This is a re-run of `node-express-v01-baseline` un
 - Load generator: MacBook on home Wi-Fi (`macbook-home-wifi`), k6 v2.3.0, ~40 ms RTT to the droplet
 
 ## Results
-Search order: 100 (fail) → 50 (pass) → 75 (pass). The search stopped because the gap is 25 VUs.
+Search order: 100 (fail) → 50 (pass) → 75 (pass), then 90 (pass) was added by hand because 75 VUs had plenty
+of p99 headroom. The search step is now 10 VUs, so future searches test this kind of level automatically.
 
 | VUs | Result | Steady req/s | p50 ms | p95 ms | p99 ms | Error % | CPU % (app / PG) | App MB | PG MB | Used MB |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 50 | PASS | 26.4 | 50 | 118 | 171 | 0.00 | 52.0 (17.7 / 31.2) | 103 | 42 | 399 |
-| **75** | **PASS** | **39.1** | **81** | **202** | **261** | 0.00 | 78.2 (26.3 / 48.0) | 106 | 41 | 409 |
+| 75 | PASS | 39.1 | 81 | 202 | 261 | 0.00 | 78.2 (26.3 / 48.0) | 106 | 41 | 409 |
+| **90** | **PASS** (marginal) | **42.8** | **234** | **659** | **980** | 0.00 | 94.1 (30.6 / 58.2) | 103 | 59 | 428 |
 | 100 | FAIL (p95, p99) | 43.7 | 461 | 890 | 1025 | 0.00 | 97.9 (31.4 / 61.0) | 106 | 66 | 487 |
 
 ## Observations

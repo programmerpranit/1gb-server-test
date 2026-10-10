@@ -13,7 +13,7 @@
 #
 # Pass = steady p50 < PASS_P50_MS, p95 < PASS_P95_MS, p99 < PASS_P99_MS and whole-run error % < PASS_ERROR_PCT.
 # Search: climb the ladder until a level fails, then bisect (lo=last pass or 0, hi=first fail),
-# rounding to SEARCH_STEP VUs, until hi - lo <= SEARCH_STEP. Capacity = highest passing level.
+# rounding to SEARCH_STEP (10) VUs, until hi - lo <= SEARCH_STEP. Capacity = highest passing level.
 source "$(dirname "$0")/lib.sh"
 
 TAG="${1:?usage: run_test.sh <tag> [vus...]}"; shift
@@ -24,7 +24,7 @@ PASS_P50_MS="${PASS_P50_MS:-500}"
 PASS_P95_MS="${PASS_P95_MS:-800}"
 PASS_P99_MS="${PASS_P99_MS:-1000}"
 PASS_ERROR_PCT="${PASS_ERROR_PCT:-1}"
-SEARCH_STEP="${SEARCH_STEP:-25}"
+SEARCH_STEP="${SEARCH_STEP:-10}"
 TAG_DIR="$REPO_ROOT/results/$TAG"
 META="$REPO_ROOT/data/meta.json"
 CRITERIA=(--p50 "$PASS_P50_MS" --p95 "$PASS_P95_MS" --p99 "$PASS_P99_MS" --error-pct "$PASS_ERROR_PCT")

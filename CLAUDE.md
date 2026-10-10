@@ -176,7 +176,8 @@ Tool: [k6](https://k6.io) (`brew install k6` on macOS; on Ubuntu follow
   `PASS_ERROR_PCT` in `.env` (changing them is a protocol change — note it).
 - **Capacity search:** climb the ladder `100 250 500 1000 2000` (`VU_LADDER`, override per run) until a level fails,
   then binary-search between the last passing level (or 0) and the first failing one, rounded to `SEARCH_STEP`
-  (25) VUs, until the gap is ≤ 25. Example: 100 pass, 250 fail → 175 → 125 or 225 → ... Full reset between levels.
+  (10) VUs, until the gap is ≤ 10. Example: 100 pass, 250 fail → 180 → 140 or 220 → ... Full reset between levels.
+  A pass within ~5 % of a limit is "marginal" — call it out in the report summary.
 - **Capacity:** the highest passing VU level, with its steady req/s. This is the headline number
   (`results/<tag>/capacity.json`, README "Capacity per configuration").
 - At ~2 s per iteration, N VUs produce roughly N/2 req/s offered load (a bit more with feed scrolling).
@@ -257,7 +258,8 @@ before the next unrelated experiment unless they become the new baseline for tha
 - [x] Baseline run 2026-10-10. Capacity < 100 VUs: CPU-bound at 100 VUs (44 req/s, p95 824 ms, 0 % errors);
       250 VUs → 24 % errors from Postgres connection exhaustion. Postgres spends ~60 % CPU on per-request
       connection setup. Memory peaked at 530 MB used. Details: `results/node-express-v01-baseline/config.md`.
-- [x] Re-run as `node-express-v01-baseline-r2` (new criteria + search): **capacity 75 VUs / 39.1 req/s**,
+- [x] Re-run as `node-express-v01-baseline-r2` (new criteria + search): **capacity 90 VUs / 42.8 req/s**
+      (marginal, p99 980 ms; 75 VUs comfortable at p99 261 ms),
       100 VUs fails on p95/p99 at the ~44 req/s CPU ceiling. ~20 ms CPU/request, ~60 % in Postgres.
 - [ ] Next: `node-express-v02-pool` (introduce `pg.Pool`, defaults).
 - Expectation to verify: 1 vCPU saturates before 1 GB RAM does; watch steal %, the pool queue, and OOM kills.
