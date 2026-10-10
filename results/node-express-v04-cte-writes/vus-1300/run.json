@@ -1,0 +1,13 @@
+{
+  "tag": "node-express-v04-cte-writes",
+  "stack": "node-express",
+  "vus": 1300,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791649130,
+  "loadgen": "do-blr1-loadgen-4vcpu-8gb",
+  "loadgen_nofile": "1048576",
+  "git_sha": "4af516b",
+  "k6_version": "k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)",
+  "date": "2026-10-10T16:21:10Z"
+}

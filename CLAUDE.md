@@ -306,6 +306,11 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
       (p99 43 ms at 500 VUs) — it was the MacBook/Wi-Fi path.
 - [x] **`node-express-v03-pool-20`** — pool `max` 10 → 20. Worse: capacity 1200 VUs / 574 req/s (marginal), first
       fail 1300. `db` time ≈ 2× at every level; on 1 vCPU more concurrent queries only add contention. Keep pool 10.
+- [x] **`node-express-v04-cte-writes`** (parent v02) — like/unlike/comment as one CTE statement instead of
+      BEGIN/2 queries/COMMIT (≈ 30 % fewer queries). No measurable gain at the ceiling: 1400 pass (marginal) but
+      1300/1350 fail; same 540–660 req/s band as v02. Kept as parent. Lesson: at 100 % CPU single runs swing ±60 req/s;
+      include an unsaturated level (1000 VUs) to compare CPU per request.
+- [ ] **`node-express-v05-prepared`** (parent v04) — named queries (`pg` prepared statements).
 - VU levels are chosen by the user for every run.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
@@ -350,6 +355,8 @@ HTTP/1.1 keep-alive behaviour.
 - Never edit files under an already released `results/<tag>/`.
 - Before claiming an optimisation helped, compare at the same VU levels, same load source, and check steal %
   (a noisy neighbour can swing results; re-run if steal is high).
+- To compare changes worth < 10 %, suggest one unsaturated level (CPU per request, e.g. 1000 VUs for node-express) in
+  addition to edge levels; at the ceiling single runs swing ±60 req/s.
 - Near the CPU ceiling single runs are noisy (v02: 1200 VUs scored worse than 1250 after a load-generator stall).
   Check `server_metrics.csv` for CPU dips with connections still open (= client/network stall) before trusting a
   fail/pass at the edge; suggest a repeat run when it matters.

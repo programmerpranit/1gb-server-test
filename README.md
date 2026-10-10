@@ -20,6 +20,7 @@ the highest passing VU level tested; this table is updated automatically. Every 
 | node-express-v01-baseline | node-express | baseline: no pool, new connection per request, Server-Timing header | 100 | 110 | 46.7 | 2804 | 242.4 | 742.4 | 958.8 | 0 | 446 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v01-baseline) |
 | node-express-v02-pool | node-express | pg.Pool with default settings (max 10) instead of a new connection per request | 1350 | 1400 | 619.1 | 37149 | 324.7 | 689.8 | 775.8 | 0 | 484 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v02-pool) |
 | node-express-v03-pool-20 | node-express | pg.Pool max 10 -> 20 | 1200 | 1300 | 574.0 | 34443 | 181.7 | 755.7 | 971.9 | 0 | 513 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v03-pool-20) |
+| node-express-v04-cte-writes | node-express | single-statement writes (CTE) instead of BEGIN/queries/COMMIT; parent v02 (pool 10) | 1400 | 1500 | 660.5 | 39631 | 192.8 | 787.7 | 990.5 | 0 | 486 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v04-cte-writes) |
 <!-- CAPACITY:END -->
 
 ## Findings
@@ -40,6 +41,10 @@ One analysis summary per tag; the full report (summary, configuration, results, 
   972 ms); 1300 VUs fails. CPU-bound as before, but twice as many concurrent queries on 1 vCPU double `db` time
   (p95 83–102 ms vs. 37–48 ms) and time outside the handler (≈ 35 vs. 15 ms). Overload p99 2450 ms at 1500 VUs.
   Keep pool 10. [Report](results/node-express-v03-pool-20/config.md)
+- **node-express-v04-cte-writes** — single-statement (CTE) writes instead of BEGIN/COMMIT, pool 10 (parent v02).
+  **No measurable gain:** rule capacity 1400 VUs / 660 req/s (marginal) but 1300 and 1350 failed; ≈ 597 vs. 584 req/s
+  averaged over the same levels as v02 (+2 %, within noise). ≈ 30 % fewer queries, `db` p95 30–38 vs. 37–48 ms, CPU
+  split unchanged. Kept as parent. [Report](results/node-express-v04-cte-writes/config.md)
 
 _Protocol-v1 results (MacBook load source) were dropped on 2026-10-10; see git history up to commit `e10904b`._
 
@@ -47,19 +52,20 @@ _Protocol-v1 results (MacBook load source) were dropped on 2026-10-10; see git h
 
 Updated after every test. The plan with all candidates is in [CLAUDE.md](CLAUDE.md#plan).
 
-**Where node-express stands:** the best configuration is `node-express-v02-pool` (pool 10): 1350 VUs / 619 req/s.
-It is CPU-bound: one vCPU split about evenly between Node and Postgres, ≈ 1.5 ms CPU per request. Latency past the
-ceiling is pool wait, not slow queries. A bigger pool (v03, 20) made it worse, so the next gains must come from
-**less CPU per request** or **less concurrency inside Postgres**.
+**Where node-express stands:** the best configurations are `node-express-v02-pool` (pool 10, 1350 VUs / 619 req/s)
+and `node-express-v04-cte-writes` (same plus single-statement writes, 1300–1400 VUs / 540–660 req/s): equal within
+noise. Both are CPU-bound, one vCPU split ≈ 42 % Node / 50 % Postgres, ≈ 1.5 ms CPU per request; latency past the
+ceiling is pool wait, not slow queries. A bigger pool (v03, 20) made it worse. Gains must come from **less CPU per
+request**. At the ceiling single runs swing ±60 req/s, so a change worth < 10 % needs an **unsaturated level
+(1000 VUs) to measure CPU per request** besides the edge levels.
 
-1. **`node-express-v04-pool-5`** (parent v02): pool `max` 10 → 5. Checks whether fewer concurrent queries cut
-   `db` time and contention enough to raise throughput. Compare at 1200 / 1300 / 1350 / 1400 VUs.
-2. **Prepared statements** (named queries in `pg`): skip parse/plan on every query. Postgres uses about half the CPU,
-   so this targets the larger half.
-3. **Single-statement writes** (CTE instead of `BEGIN` / 2–3 queries / `COMMIT`): like, unlike and comment drop from
-   3–4 round trips to 1 and hold a pooled connection for less time.
-4. **Postgres tuning** (`shared_buffers`, `work_mem`, `synchronous_commit=off` as a labelled trade-off).
-5. Then framework/runtime swaps on the best configuration: Fastify, Bun, cluster (expected little gain on 1 vCPU).
+1. **`node-express-v05-prepared`** (parent v04): named queries in `pg`, so Postgres parses and plans each statement
+   once per connection. Postgres uses half the CPU. Run 1000 VUs (CPU per request) plus edge levels.
+2. **Unix socket** to Postgres instead of TCP on localhost: less kernel network work per query.
+3. **Postgres tuning** (`shared_buffers`, `work_mem`, `synchronous_commit=off` as a labelled trade-off).
+4. **Fastify instead of Express**, then disable ETag / `x-powered-by`: cuts the Node share (≈ 42 %).
+5. **1 s cache of the first global-feed page** (labelled trade-off: up to 1 s stale): removes ≈ 35 % of queries.
+6. Then runtime swaps on the best configuration: Bun, cluster (expected little gain on 1 vCPU); then other stacks.
 
 Each step is one tag that changes one thing from the best configuration so far. VU levels are chosen per run.
 
@@ -231,6 +237,66 @@ level is **1300 VUs**: 563 req/s, p95 1031 ms, p99 1114 ms. **Pool 20 is worse t
 
 `node-express-v04-pool-5` (parent v02): pool `max` 10 → 5, to see whether fewer concurrent queries cut `db` time
 enough to raise throughput. If not, keep pool 10 and move to per-request CPU savings.
+
+### node-express-v04-cte-writes
+
+[Full report](results/node-express-v04-cte-writes/config.md) · [Release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v04-cte-writes)
+
+#### What changed
+
+Parent: `node-express-v02-pool` (pool 10). v03 (pool 20) was worse and is not carried forward.
+One change: the writes that touch two tables are now **one SQL statement with data-modifying CTEs** instead of
+`BEGIN` / 2 queries / `COMMIT`:
+- like: `INSERT INTO likes ... SELECT FROM posts WHERE id = $1 ON CONFLICT DO NOTHING`, then `UPDATE posts SET
+  like_count = like_count + 1` only for the inserted row; the count comes from the UPDATE or, for an existing like,
+  from `posts`.
+- unlike: `DELETE FROM likes ... RETURNING`, then decrement only for the deleted row.
+- comment: `INSERT INTO comments ... RETURNING`, then `UPDATE posts SET comment_count = comment_count + 1`.
+A single statement is one transaction, so the writes stay atomic. Responses and status codes are unchanged
+(verified: new/repeat like and unlike, unknown post 404, unknown user 401, empty text 400). A concurrency check of
+30 parallel likes by one user, 40 by different users and 20 parallel unlikes left `like_count` = rows in `likes` (31).
+
+#### Summary
+
+**No measurable gain over v02.** By the capacity rule (highest passing level) v04 scores **1400 VUs at 660 req/s**,
+but that pass is **marginal** (p95 788 ms, 1.5 % under 800; p99 991 ms, 1 % under 1000), and the lower levels
+**1300 and 1350 VUs both failed**. Read the capacity as "about 1300–1400 VUs, 540–660 req/s", the same band as the
+parent tag (v02, pool 10: 1350 VUs / 619 req/s). 1500 VUs fails (614 req/s, p95 1316 ms). 0 % errors everywhere.
+
+- **The change works as designed, but the effect is smaller than the run-to-run noise at the ceiling.** Like,
+  unlike and comment now take 1 round trip instead of 4. That removes about 30 % of all queries (≈ 1.6 → ≈ 1.1 per
+  request across the action mix). `db` p95 dropped a little (30–38 ms vs. 37–48 ms in v02 at the same levels).
+- **The CPU split did not change:** Node ≈ 42 % / Postgres ≈ 50 %, CPU at 99.5–100 % at every level. The removed
+  queries were the cheapest ones (BEGIN, COMMIT, and short single-row updates), so the saving per request is small.
+- **At 100 % CPU, the outcome is decided by whether a queue forms during the ramp, not by the code.** Over the four
+  shared levels v04 averages 597 req/s and v02 584 req/s (+2 %), while single runs of either tag swing ±60 req/s.
+  v04 passed 1400 but failed 1300 and 1350; v02 passed 1300 and 1350 but failed 1400.
+- **Memory is not a constraint.** Peak 516 MB used (445 MB still available), Node ≤ 136 MB, Postgres ≤ 127 MB, no swap.
+- **The runs are clean.** CPU never dropped below 70 % during any hold phase, steal ≤ 0.6 %, the load generator
+  averaged 19–21 % CPU, and `app_log_tail.txt` has no errors.
+- **Kept as the parent of the next tag:** it is correct, atomic, does no harm, and lowers `db` time slightly.
+- **Next:** prepared statements (`pg` named queries) to skip parse/plan in Postgres, which uses half the CPU. To see
+  small gains, also compare at a level below saturation (e.g. 1000 VUs, where v02 used 84 % CPU for 538 req/s):
+  the CPU cost per request is measurable there, unlike at the ceiling.
+
+#### Observations
+
+- Latency is still almost all pool wait: `conn` is 92–97 % of server time at every level. Queries themselves stay
+  fast (`db` p50 12–15 ms).
+- Time outside the handler (client − server p50) is 20–26 ms, a bit above v02 (14–18 ms). With the same CPU
+  saturation, this is likely run-to-run variation in how long requests wait for Node to be scheduled.
+- Per-endpoint p95 at 1400 VUs is uniform (716–763 ms client): every endpoint waits in the same pool queue, so the
+  shorter write path does not show up in per-endpoint latency at saturation.
+- The k6 summary only keeps `server_db` overall and per phase, not per endpoint, so the write-path saving cannot be
+  isolated from these runs. A run below saturation would show it in total CPU per request.
+- Near the ceiling, the pass/fail verdict of a single run is not reliable for changes worth less than ≈ 10 %. Future
+  comparisons should include one unsaturated level (CPU per request) besides the edge levels.
+
+#### Next idea
+
+`node-express-v05-prepared` (parent v04): named queries in `pg` (`{ name, text, values }`), so each pooled
+connection parses and plans every statement once and reuses the plan. Postgres uses half the CPU; parse/plan is a
+real part of it for these short indexed queries. Run one unsaturated level (1000 VUs) plus the edge levels.
 <!-- ANALYSIS:END -->
 
 ## All runs
@@ -267,6 +333,10 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 | node-express-v03-pool-20 | node-express | 1300 | FAIL | 562.6 | 33755 | 54136 | 414.0 | 936.4 | 1031.1 | 1114.0 | 1237 | 379 | 990.3 | 942.6 | 0 | 126 | 137 | 518 | 0 | 99.2 | 0.3 | do-blr1-loadgen-4vcpu-8gb |
 | node-express-v03-pool-20 | node-express | 1350 | FAIL | 496.5 | 29789 | 48359 | 859.7 | 1198.3 | 1249.3 | 1325.9 | 1475 | 816.1 | 1201.2 | 1154.8 | 0 | 131 | 137 | 524 | 0 | 100.0 | 0.4 | do-blr1-loadgen-4vcpu-8gb |
 | node-express-v03-pool-20 | node-express | 1200 | PASS | 574.0 | 34443 | 53684 | 181.7 | 567.0 | 755.7 | 971.9 | 1108 | 146.8 | 706.6 | 655.8 | 0 | 120 | 138 | 513 | 0 | 98.8 | 0.3 | do-blr1-loadgen-4vcpu-8gb |
+| node-express-v04-cte-writes | node-express | 1300 | FAIL | 542.2 | 32532 | 53633 | 532.4 | 1060.1 | 1242.8 | 1515.5 | 1580 | 506.3 | 1206.3 | 1184.3 | 0 | 129 | 111 | 491 | 0 | 99.5 | 0.6 | do-blr1-loadgen-4vcpu-8gb |
+| node-express-v04-cte-writes | node-express | 1400 | PASS | 660.5 | 39631 | 61864 | 192.8 | 671.6 | 787.7 | 990.5 | 1092 | 172.7 | 764.3 | 741.7 | 0 | 126 | 110 | 486 | 0 | 99.7 | 0.1 | do-blr1-loadgen-4vcpu-8gb |
+| node-express-v04-cte-writes | node-express | 1500 | FAIL | 613.6 | 36817 | 61506 | 495.9 | 1155.3 | 1315.9 | 1438.5 | 1531 | 474.5 | 1273.7 | 1252.0 | 0 | 136 | 111 | 516 | 0 | 99.9 | 0.3 | do-blr1-loadgen-4vcpu-8gb |
+| node-express-v04-cte-writes | node-express | 1350 | FAIL | 569.0 | 34139 | 54435 | 510.8 | 766.3 | 847.1 | 952.8 | 1018 | 488.8 | 819.5 | 802.5 | 0 | 126 | 127 | 506 | 0 | 100.0 | 0.4 | do-blr1-loadgen-4vcpu-8gb |
 <!-- RESULTS:END -->
 
 ## Reproducing

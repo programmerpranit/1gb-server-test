@@ -1,0 +1,10 @@
+{
+  "language": "JavaScript",
+  "runtime": "node",
+  "framework": "Express 5.3.0",
+  "db": "postgres",
+  "db_driver": "pg 8.23.1",
+  "db_pool": "pg.Pool defaults (max 10)",
+  "workers": 1,
+  "change": "single-statement writes (CTE) instead of BEGIN/queries/COMMIT; parent v02 (pool 10)"
+}
