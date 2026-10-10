@@ -1,17 +1,18 @@
 'use strict';
 
-// Baseline implementation of the protocol v1 API (see CLAUDE.md "API contract").
-// Deliberately plain: Express defaults, one process, NO connection pool — every request opens its own
-// Postgres connection and closes it when done. One query per step.
+// Implementation of the protocol v1 API (see CLAUDE.md "API contract").
+// Deliberately plain: Express defaults, one process, a pg.Pool with default settings (max 10) — every request
+// borrows one connection for all its queries and returns it when done. One query per step.
 
 const express = require('express');
-const { Client, types } = require('pg');
+const { Pool, types } = require('pg');
 
 // bigint ids/counters come back as strings by default; all our values fit in a JS number.
 types.setTypeParser(20, (v) => parseInt(v, 10));
 
 const PORT = Number(process.env.PORT || 3000);
-const DATABASE_URL = process.env.DATABASE_URL;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+pool.on('error', (err) => console.error('pg pool error', err));
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -79,15 +80,18 @@ function requireUser(req, res, next) {
   next();
 }
 
-// One fresh connection per request, closed before the response is sent.
+// One pooled connection per request, returned to the pool before the response is sent.
+// A connection whose ROLLBACK failed is destroyed instead of being reused.
 async function withClient(fn) {
-  const client = new Client({ connectionString: DATABASE_URL });
-  client.on('error', (err) => console.error('pg client error', err));
-  await client.connect();
+  const client = await pool.connect();
+  let broken;
   try {
     return await fn(client);
+  } catch (err) {
+    if (err.brokenConnection) broken = err;
+    throw err;
   } finally {
-    await client.end().catch(() => {});
+    client.release(broken);
   }
 }
 
@@ -99,7 +103,7 @@ async function withTransaction(fn) {
       await client.query('COMMIT');
       return result;
     } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
+      await client.query('ROLLBACK').catch(() => { err.brokenConnection = true; });
       throw err;
     }
   });
@@ -242,7 +246,7 @@ app.use((err, req, res, next) => {
 const server = app.listen(PORT, () => console.log(`node-express listening on :${PORT}`));
 
 function shutdown() {
-  server.close(() => process.exit(0));
+  server.close(() => pool.end().then(() => process.exit(0)));
   setTimeout(() => process.exit(1), 5000).unref();
 }
 process.on('SIGTERM', shutdown);
