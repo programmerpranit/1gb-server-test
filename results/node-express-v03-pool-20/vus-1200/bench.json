@@ -1,0 +1,10 @@
+{
+  "language": "JavaScript",
+  "runtime": "node",
+  "framework": "Express 5.3.0",
+  "db": "postgres",
+  "db_driver": "pg 8.23.1",
+  "db_pool": "pg.Pool max 20 (other settings default)",
+  "workers": 1,
+  "change": "pg.Pool max 10 -> 20"
+}

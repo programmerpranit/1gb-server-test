@@ -19,6 +19,7 @@ the highest passing VU level tested; this table is updated automatically. Every 
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | node-express-v01-baseline | node-express | baseline: no pool, new connection per request, Server-Timing header | 100 | 110 | 46.7 | 2804 | 242.4 | 742.4 | 958.8 | 0 | 446 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v01-baseline) |
 | node-express-v02-pool | node-express | pg.Pool with default settings (max 10) instead of a new connection per request | 1350 | 1400 | 619.1 | 37149 | 324.7 | 689.8 | 775.8 | 0 | 484 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v02-pool) |
+| node-express-v03-pool-20 | node-express | pg.Pool max 10 -> 20 | 1200 | 1300 | 574.0 | 34443 | 181.7 | 755.7 | 971.9 | 0 | 513 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v03-pool-20) |
 <!-- CAPACITY:END -->
 
 ## Findings
@@ -35,6 +36,10 @@ One analysis summary per tag; the full report (summary, configuration, results, 
   ≈ 50 %), ≈ 1.5 ms CPU per request. Past the ceiling, latency is pool wait (`conn` p95 1276 ms at 1400 VUs) while
   queries stay at p95 ≤ 48 ms; 0 % errors at every level. Memory ≤ 509 MB.
   [Report](results/node-express-v02-pool/config.md)
+- **node-express-v03-pool-20** — pool `max` 10 → 20. **Worse: capacity 1200 VUs / 574 req/s** (marginal: p99
+  972 ms); 1300 VUs fails. CPU-bound as before, but twice as many concurrent queries on 1 vCPU double `db` time
+  (p95 83–102 ms vs. 37–48 ms) and time outside the handler (≈ 35 vs. 15 ms). Overload p99 2450 ms at 1500 VUs.
+  Keep pool 10. [Report](results/node-express-v03-pool-20/config.md)
 
 _Protocol-v1 results (MacBook load source) were dropped on 2026-10-10; see git history up to commit `e10904b`._
 
@@ -67,6 +72,11 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 | node-express-v02-pool | node-express | 1300 | PASS | 651.1 | 39069 | 59600 | 107.9 | 365.0 | 465.9 | 652.0 | 752 | 93.6 | 449.8 | 429.3 | 0 | 119 | 108 | 478 | 0 | 99.4 | 0.2 | do-blr1-loadgen-4vcpu-8gb |
 | node-express-v02-pool | node-express | 1350 | PASS | 619.1 | 37149 | 58671 | 324.7 | 577.7 | 689.8 | 775.8 | 864 | 309.6 | 670.4 | 651.2 | 0 | 124 | 108 | 484 | 0 | 100.0 | 0.1 | do-blr1-loadgen-4vcpu-8gb |
 | node-express-v02-pool | node-express | 1400 | FAIL | 517.7 | 31061 | 51671 | 895.2 | 1273.5 | 1319.7 | 1389.0 | 1491 | 878.7 | 1298.7 | 1275.7 | 0 | 131 | 125 | 509 | 0 | 100.0 | 0.4 | do-blr1-loadgen-4vcpu-8gb |
+| node-express-v03-pool-20 | node-express | 1400 | FAIL | 604.3 | 36259 | 58260 | 407.5 | 788.5 | 897.3 | 1144.6 | 1279 | 374.6 | 856.8 | 815.9 | 0 | 130 | 139 | 525 | 0 | 100.0 | 0.2 | do-blr1-loadgen-4vcpu-8gb |
+| node-express-v03-pool-20 | node-express | 1500 | FAIL | 524.5 | 31468 | 54877 | 909.1 | 1498.5 | 1935.5 | 2450.0 | 2648 | 874.9 | 1892.1 | 1832.1 | 0 | 136 | 155 | 542 | 0 | 100.0 | 0.5 | do-blr1-loadgen-4vcpu-8gb |
+| node-express-v03-pool-20 | node-express | 1300 | FAIL | 562.6 | 33755 | 54136 | 414.0 | 936.4 | 1031.1 | 1114.0 | 1237 | 379 | 990.3 | 942.6 | 0 | 126 | 137 | 518 | 0 | 99.2 | 0.3 | do-blr1-loadgen-4vcpu-8gb |
+| node-express-v03-pool-20 | node-express | 1350 | FAIL | 496.5 | 29789 | 48359 | 859.7 | 1198.3 | 1249.3 | 1325.9 | 1475 | 816.1 | 1201.2 | 1154.8 | 0 | 131 | 137 | 524 | 0 | 100.0 | 0.4 | do-blr1-loadgen-4vcpu-8gb |
+| node-express-v03-pool-20 | node-express | 1200 | PASS | 574.0 | 34443 | 53684 | 181.7 | 567.0 | 755.7 | 971.9 | 1108 | 146.8 | 706.6 | 655.8 | 0 | 120 | 138 | 513 | 0 | 98.8 | 0.3 | do-blr1-loadgen-4vcpu-8gb |
 <!-- RESULTS:END -->
 
 ## Reproducing

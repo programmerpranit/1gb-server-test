@@ -302,6 +302,8 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
       1350 VUs / 619 req/s, first fail 1400; peak 651 req/s. CPU-bound (Node ≈ 42 % / PG ≈ 50 %, ≈ 1.5 ms CPU/req);
       overload shows up as pool wait (`conn`), not query time or errors. The protocol-v1 tail from 400 VUs is gone
       (p99 43 ms at 500 VUs) — it was the MacBook/Wi-Fi path.
+- [x] **`node-express-v03-pool-20`** — pool `max` 10 → 20. Worse: capacity 1200 VUs / 574 req/s (marginal), first
+      fail 1300. `db` time ≈ 2× at every level; on 1 vCPU more concurrent queries only add contention. Keep pool 10.
 - VU levels are chosen by the user for every run.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
