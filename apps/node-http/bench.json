@@ -1,10 +1,10 @@
 {
   "language": "JavaScript",
-  "runtime": "node",
+  "runtime": "bun",
   "framework": "node:http (no framework)",
   "db": "postgres",
   "db_driver": "pg 8.23.1",
   "db_pool": "pg.Pool defaults (max 10)",
   "workers": 1,
-  "change": "port of node-express v06 to plain node:http (no Express, no ETag); same pool, prepared statements, CTE writes, 1 s feed cache"
+  "change": "runtime Node 24 -> Bun 1.4.2 (same node:http + pg code); parent node-http v01"
 }

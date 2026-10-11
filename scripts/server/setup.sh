@@ -2,13 +2,14 @@
 # One-time provisioning of the droplet under test. Runs ON THE SERVER as root.
 # Invoked by scripts/provision.sh; safe to re-run.
 #
-# Usage: setup.sh <db_user> <db_password> <app_port> [node_major]
+# Usage: setup.sh <db_user> <db_password> <app_port> [node_major] [bun_version]
 set -euo pipefail
 
 DB_USER="${1:?db_user}"
 DB_PASSWORD="${2:?db_password}"
 APP_PORT="${3:?app_port}"
 NODE_MAJOR="${4:-24}"
+BUN_VERSION="${5:-1.4.2}"
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -23,6 +24,16 @@ echo ">> Node.js $NODE_MAJOR (NodeSource)"
 if ! command -v node >/dev/null || [[ "$(node -v | cut -d. -f1)" != "v$NODE_MAJOR" ]]; then
   curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
   apt-get install -y nodejs
+fi
+
+echo ">> Bun $BUN_VERSION (pinned release binary, /usr/local/bin/bun; used by apps whose start.sh runs bun)"
+if [[ "$(bun --version 2>/dev/null)" != "$BUN_VERSION" ]]; then
+  apt-get install -y unzip
+  tmp=$(mktemp -d)
+  curl -fsSL -o "$tmp/bun.zip" "https://github.com/oven-sh/bun/releases/download/bun-v$BUN_VERSION/bun-linux-x64.zip"
+  unzip -q "$tmp/bun.zip" -d "$tmp"
+  install -m 755 "$tmp/bun-linux-x64/bun" /usr/local/bin/bun
+  rm -rf "$tmp"
 fi
 
 echo ">> timezone + limits"
