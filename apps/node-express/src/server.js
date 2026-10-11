@@ -5,6 +5,7 @@
 // borrows one connection for all its queries and returns it when done. Writes that touch two tables (like + counter,
 // comment + counter) are ONE statement with data-modifying CTEs: atomic without BEGIN/COMMIT, one round trip.
 // Every query is a prepared statement (named query): each pooled connection parses and plans it once, then reuses it.
+// GET /posts (global feed) is cached in process for 1 s (see "Global feed cache").
 // Every response carries a Server-Timing header: conn (pool wait), db (queries), app (the rest), total.
 
 const express = require('express');
@@ -152,14 +153,49 @@ app.get('/health', async (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.get('/posts', async (req, res) => {
-  const { limit, before } = pageParams(req.query);
-  const { rows } = await withClient(req, (db) => db.query(
+// --- Global feed cache ---------------------------------------------------------------------------------------------
+// GET /posts responses (serialized JSON) are cached in process for FEED_CACHE_TTL_MS, keyed by (limit, before).
+// Trade-off: the global feed may be up to one TTL stale (new posts, like/comment counts). Concurrent misses for the
+// same key share one query (single-flight): the request that runs it records conn/db time, the ones waiting on it
+// record their wait as app time. Hit/miss counts are logged every 10 s while there is traffic.
+const FEED_CACHE_TTL_MS = 1000;
+const feedCache = new Map(); // key -> { expires, body: Promise<string> }
+const feedStats = { hit: 0, miss: 0 };
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of feedCache) if (entry.expires <= now) feedCache.delete(key);
+  if (feedStats.hit + feedStats.miss > 0) {
+    console.log(`feed cache: hit=${feedStats.hit} miss=${feedStats.miss} keys=${feedCache.size}`);
+    feedStats.hit = 0;
+    feedStats.miss = 0;
+  }
+}, 10000).unref();
+
+function cachedFeed(req, limit, before) {
+  const key = `${limit}:${before}`;
+  const now = Date.now();
+  const entry = feedCache.get(key);
+  if (entry && entry.expires > now) {
+    feedStats.hit++;
+    return entry.body;
+  }
+  feedStats.miss++;
+  const body = withClient(req, (db) => db.query(
     `SELECT ${POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id
      WHERE p.is_public AND p.id < $1 ORDER BY p.id DESC LIMIT $2`,
     [before, limit],
-  ));
-  res.json(page(rows, limit));
+  )).then(({ rows }) => JSON.stringify(page(rows, limit)));
+  const fresh = { expires: now + FEED_CACHE_TTL_MS, body };
+  feedCache.set(key, fresh);
+  // A failed query is not cached: the waiting requests get the error, the next request retries.
+  body.catch(() => { if (feedCache.get(key) === fresh) feedCache.delete(key); });
+  return body;
+}
+
+app.get('/posts', async (req, res) => {
+  const { limit, before } = pageParams(req.query);
+  res.type('json').send(await cachedFeed(req, limit, before));
 });
 
 app.get('/posts/:id', async (req, res) => {
