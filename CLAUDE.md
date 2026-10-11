@@ -329,7 +329,10 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
       variance (one run ≈ 30 % faster, no steal) → added `cpu_probe.sh` + `cpu_ms_per_req_steady`.
 - [x] Profile of v05 at 1000 VUs (`profiles/2026-10-10-node-express-v05-1000vus/`): Node 44 % / Postgres 35 % /
       idle 14 %; Memoize setup in feed queries ≈ 10 % of Postgres CPU; Express + router ≈ 24 % of Node JS time.
-- [ ] **`node-express-v06-no-memoize`** (parent v05) — `enable_memoize = off`.
+- [ ] **`node-express-v06-feed-cache-1s`** (parent v05) — in-process cache of `GET /posts` (all pages, key
+      limit + before, TTL 1 s, single-flight; ≈ 47 % of requests). Labelled trade-off: global feed up to 1 s stale.
+- [ ] **`node-express-v07-feed-cache-5s`** (parent v06) — same cache, TTL 5 s.
+- [ ] `enable_memoize = off` (moved down: the cache removes most feed queries, where Memoize cost was).
 - VU levels are chosen by the user for every run.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
