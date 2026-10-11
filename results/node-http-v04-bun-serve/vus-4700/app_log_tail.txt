@@ -1,0 +1,19 @@
+Oct 11 17:00:08 1gb-test systemd[1]: Stopping bench-app.service - Benchmark app (node-http)...
+Oct 11 17:00:08 1gb-test systemd[1]: bench-app.service: Deactivated successfully.
+Oct 11 17:00:08 1gb-test systemd[1]: Stopped bench-app.service - Benchmark app (node-http).
+Oct 11 17:00:08 1gb-test systemd[1]: bench-app.service: Consumed 46.331s CPU time, 32.6M memory peak, 0B memory swap peak.
+Oct 11 17:00:12 1gb-test systemd[1]: Started bench-app.service - Benchmark app (node-http).
+Oct 11 17:00:12 1gb-test start.sh[100884]: node-http (Bun.serve) listening on :3000
+Oct 11 17:00:32 1gb-test start.sh[100884]: feed cache: hit=743 miss=16 keys=3
+Oct 11 17:00:42 1gb-test start.sh[100884]: feed cache: hit=2645 miss=19 keys=2
+Oct 11 17:00:52 1gb-test start.sh[100884]: feed cache: hit=4789 miss=20 keys=2
+Oct 11 17:01:02 1gb-test start.sh[100884]: feed cache: hit=6441 miss=22 keys=2
+Oct 11 17:01:12 1gb-test start.sh[100884]: feed cache: hit=7904 miss=20 keys=2
+Oct 11 17:01:22 1gb-test start.sh[100884]: feed cache: hit=10253 miss=20 keys=2
+Oct 11 17:01:32 1gb-test start.sh[100884]: feed cache: hit=8186 miss=20 keys=2
+Oct 11 17:01:42 1gb-test start.sh[100884]: feed cache: hit=9522 miss=21 keys=2
+Oct 11 17:01:52 1gb-test start.sh[100884]: feed cache: hit=10583 miss=20 keys=2
+Oct 11 17:02:02 1gb-test start.sh[100884]: feed cache: hit=9120 miss=19 keys=2
+Oct 11 17:02:12 1gb-test start.sh[100884]: feed cache: hit=10575 miss=22 keys=2
+Oct 11 17:02:22 1gb-test start.sh[100884]: feed cache: hit=11124 miss=21 keys=2
+Oct 11 17:02:32 1gb-test start.sh[100884]: feed cache: hit=2677 miss=6 keys=0

@@ -7,12 +7,20 @@
     "error_pct": 1.0
   },
   "capacity_vus": 4500,
-  "first_fail_vus": null,
+  "first_fail_vus": 4700,
   "levels_tested": [
     {
       "vus": 4500,
       "pass": true,
       "fail_reasons": []
+    },
+    {
+      "vus": 4700,
+      "pass": false,
+      "fail_reasons": [
+        "p95 1188>=800ms",
+        "p99 1547>=1000ms"
+      ]
     }
   ],
   "at_capacity": {

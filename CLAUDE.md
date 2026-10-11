@@ -355,8 +355,8 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
       1404 vs. 1045 ms. The CPU is the ceiling, not the pool; keep pool 10.
 - [x] **`node-http-v03-bun-sql`** (parent v02) — Bun.sql instead of pg. 4500 VUs FAIL (1955 req/s, slow host); app : PG
       1.22 vs. 1.29, ≤ 5 % gain. Released as base for v04 (user decision).
-- [x] **`node-http-v04-bun-serve`** (parent v03) — `Bun.serve` instead of `node:http`. **4500 VUs PASS, 2324 req/s**
-      (p99 912 ms), no fail level tested (load generator near its limit); app : PG 0.91 (Postgres now the larger
+- [x] **`node-http-v04-bun-serve`** (parent v03) — `Bun.serve` instead of `node:http`. **Capacity 4500 VUs / 2324 req/s**
+      (p99 912 ms), 4700 FAIL twice on slow hosts (probe 104 / 148 ms); app : PG 0.91 (Postgres now the larger
       share), Bun PSS 59 MB. **Node/Bun phase closed here (user, 2026-10-11).**
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
@@ -373,7 +373,7 @@ directly: same API, single-statement CTE writes, prepared statements, DB pool ma
 `GET /posts`** (single-flight, all pages), `Server-Timing`. Run the parity check before the first load test:
 `scripts/parity.sh > out.txt` (fresh DB, 39 requests: status + body + content type) and `diff` it against
 `results/parity/node-http-reference.txt` (only line 1, the app name, may differ). Reference: `node-http-v04-bun-serve`
-≥ 4500 VUs / 2324 req/s. Levels above ≈ 4500 VUs need an 8 vCPU load generator (new `LOADGEN_LABEL`).
+4500 VUs / 2324 req/s (first fail 4700). Levels above ≈ 4500 VUs need an 8 vCPU load generator (new `LOADGEN_LABEL`).
 
 ### Phase 3 — Python
 FastAPI + uvicorn + asyncpg (baseline: 1 worker), then gunicorn worker count, uvloop, orjson; optionally Django/DRF

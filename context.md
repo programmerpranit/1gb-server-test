@@ -41,7 +41,7 @@ _Last updated: 2026-10-11, end of session 2 (Node/Bun phase closed at node-http 
 | node-http-v01-express-v06-port | v06 on plain `node:http`, no Express (new stack) | 3200 | 1678 | 3500 | +7 % VUs; Node : PG CPU 1.55 vs. 1.93; part of req/s gain is host speed |
 | node-http-v02-bun | runtime Node → Bun 1.4.2, same code | 4200 | 2078 | 4500 | +25 % VUs; ceiling ≈ 2100 req/s (CPU 100 %); app : PG 1.28 vs. 1.48 |
 | node-http-v03-bun-sql | Bun.sql instead of pg (parent v02) | < 4500 (only 4500 tested) | – | 4500 | ≤ 5 % less app work; edge run on a slow host |
-| node-http-v04-bun-serve | Bun.serve instead of node:http (parent v03) | ≥ 4500 (only 4500 tested) | 2324 | – | app : PG 0.91; Postgres now larger; Bun PSS 59 MB; **best so far** |
+| node-http-v04-bun-serve | Bun.serve instead of node:http (parent v03) | 4500 | 2324 | 4700 (2×, slow hosts) | app : PG 0.91; Postgres now larger; Bun PSS 59 MB; **best so far** |
 
 All ten are released on GitHub (build, results, `report-<tag>.html`). Best configuration: **node-http v04 (Bun.serve + Bun.sql)**
 (cached; on Node: node-http v01; on Express: node-express v06; best uncached: node-express v05).
@@ -65,7 +65,8 @@ Tried this session and **not released** (results moved aside, app reverted to v0
 - No hardware perf counters on the droplet (`<not supported>` for instructions/cycles); perf samples cpu-clock.
 
 ## Open decisions / next steps
-1. **Node/Bun phase is closed** (user, 2026-10-11) at `node-http-v04-bun-serve`: ≥ 4500 VUs / 2324 req/s.
+1. **Node/Bun phase is closed** (user, 2026-10-11) at `node-http-v04-bun-serve`: 4500 VUs / 2324 req/s; 4700
+   failed twice, both on slow hosts (probe 104 / 148 ms vs. 82 for the 4500 pass).
 2. **Next, in the user's order: Python → Go → Rust → C++.** Each new stack (`apps/<stack>/`, tags `<stack>-v01-...`)
    starts as a port of the best Node/Bun logic: same API, CTE writes, prepared statements, pool 10, 1 s in-process
    feed cache (single-flight), `Server-Timing`. Run the parity check first: `scripts/parity.sh > out.txt`

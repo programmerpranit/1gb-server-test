@@ -26,7 +26,7 @@ the highest passing VU level tested; this table is updated automatically. Every 
 | node-http-v01-express-v06-port | node-http | port of node-express v06 to plain node:http (no Express, no ETag); same pool, prepared statements, CTE writes, 1 s feed cache | 3200 | 3500 | 1677.6 | 100656 | 10.9 | 392.4 | 835.3 | 0 | 523 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v01-express-v06-port) |
 | node-http-v02-bun | node-http | runtime Node 24 -> Bun 1.4.2 (same node:http + pg code); parent node-http v01 | 4200 | 4500 | 2077.8 | 124666 | 46.7 | 752.4 | 850.6 | 0 | 498 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v02-bun) |
 | node-http-v03-bun-sql | node-http | Postgres client pg 8.23.1 -> Bun.sql (native); parent node-http v02 | < 4500 | 4500 | - | - | - | - | - | - | - | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v03-bun-sql) |
-| node-http-v04-bun-serve | node-http | HTTP server node:http -> Bun.serve; parent node-http v03 (Bun.sql) | ≥ 4500 | - | 2324.2 | 139452 | 14.8 | 319.2 | 911.5 | 0 | 464 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v04-bun-serve) |
+| node-http-v04-bun-serve | node-http | HTTP server node:http -> Bun.serve; parent node-http v03 (Bun.sql) | 4500 | 4700 | 2324.2 | 139452 | 14.8 | 319.2 | 911.5 | 0 | 464 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v04-bun-serve) |
 <!-- CAPACITY:END -->
 
 ## Findings
@@ -70,8 +70,8 @@ One analysis summary per tag; the full report (summary, configuration, results, 
 - **node-http-v03-bun-sql** — Bun.sql (native client) instead of `pg`, parent v02. **4500 VUs FAIL** (1955 req/s,
   slow host); app : Postgres CPU 1.22 vs. 1.29: at most ≈ 5 % less app work, no measurable gain. Kept as base for
   `Bun.serve`. [Report](results/node-http-v03-bun-sql/config.md)
-- **node-http-v04-bun-serve** — `Bun.serve` instead of `node:http`, parent v03 (Bun.sql). **4500 VUs PASS at
-  2324 req/s** (p99 912 ms), no fail level tested (load generator near its limit). App : Postgres CPU 0.91 vs. 1.22:
+- **node-http-v04-bun-serve** — `Bun.serve` instead of `node:http`, parent v03 (Bun.sql). **Capacity 4500 VUs /
+  2324 req/s** (p99 912 ms); 4700 fails twice, both on slow hosts (probe 104 / 148 ms vs. 82). App : Postgres CPU 0.91 vs. 1.22:
   ≈ 25 % less app work; Postgres is now the larger share. Bun PSS 59 MB. Best result so far.
   [Report](results/node-http-v04-bun-serve/config.md)
 
@@ -83,8 +83,8 @@ Updated after every test. The plan with all candidates is in [CLAUDE.md](CLAUDE.
 
 **Where Node / Bun stands (phase closed):** best configuration `node-http-v04-bun-serve` (Bun 1.4.2, `Bun.serve`,
 `Bun.sql`, pool 10, prepared statements, single-statement writes, 1 s in-process cache of the global feed):
-**≥ 4500 VUs / 2324 req/s**, no failing level tested. Path: Express + pool 1400 VUs (v05) → feed cache 3000 (v06) →
-plain `node:http` 3200 → Bun 4200 → `Bun.sql` + `Bun.serve` ≥ 4500. Without a cache the best is
+**4500 VUs / 2324 req/s**, first fail 4700 (on slow hosts). Path: Express + pool 1400 VUs (v05) → feed cache 3000 (v06) →
+plain `node:http` 3200 → Bun 4200 → `Bun.sql` + `Bun.serve` 4500. Without a cache the best is
 `node-express-v05-prepared`, 1400 VUs / 645 req/s. At the edge Postgres is now the larger CPU user (≈ 45 % vs. the
 app's ≈ 41 %).
 
@@ -576,9 +576,11 @@ DB) gave responses identical to v01–v03. App code from commit `d4b36f2`.
 
 #### Summary
 
-**Capacity: ≥ 4500 VUs at 2324 req/s (139,452 req/min)** — the only level tested, PASS: steady p50 15 ms / p95
-319 ms / p99 912 ms, 0 % errors. No failing level yet: the edge is above 4500 VUs, but the 4 vCPU load generator is
-close to its limit there, so the user stopped here. **Best result of the project so far**: +7 % VUs over v02 (4200)
+**Capacity: 4500 VUs at 2324 req/s (139,452 req/min)**, steady p50 15 ms / p95 319 ms / p99 912 ms, 0 % errors.
+**First fail: 4700 VUs** (added after the first release), in two runs, both on a slow host: 2212 req/s (p95 934 /
+p99 1093 ms, probe 104 ms) and, rerun, 2144 req/s (p95 1188 / p99 1547 ms, probe 148 ms); the 4500 pass ran at probe
+82 ms. The CPU was at 100 % and the latency was pool wait in both, so the 4700 failures are server-side, but on a
+normal-speed host 4700 might pass. **Best result of the project so far**: +7 % VUs over v02 (4200)
 and +12 % req/s over v02's best (2078–2097 req/s at 4200–4500 VUs); v02 and v03 both failed 4500 VUs.
 
 - **`Bun.serve` cuts the app's work per request by ≈ 25 %.** App : Postgres CPU ratio 0.91 (Bun 40.7 % / PG 44.6 %)
@@ -603,6 +605,9 @@ and +12 % req/s over v02's best (2078–2097 req/s at 4200–4500 VUs); v02 and 
 - Time outside the app (client − server) p50 13 ms / p95 49 ms: the p95 is the highest so far and coincides with the
   load generator's CPU peaks, so part of the tail is on the client side.
 - Feed-cache hit rate 99.7 %; `app_log_tail.txt` has no errors.
+- 4700 VUs, first run (replaced): FAIL, 2211.7 req/s, p50 156 / p95 934 / p99 1093 ms, CPU 98.5 % (Bun 43.1 / PG 45.9),
+  0.45 ms CPU/req, probe 104.5 / 83.0 ms, load generator 53 % average. Rerun (kept): probe 148 ms before, the slowest
+  host of the session. Both runs: CPU pinned, `conn` p95 880–1096 ms, time outside the app p95 19–30 ms (not k6).
 
 #### Next idea
 
@@ -733,6 +738,7 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 | node-http-v02-bun | node-http | 4200 | PASS | 2077.8 | 124666 | 194707 | 46.7 | 589.2 | 752.4 | 850.6 | 1208 | 21.9 | 726.4 | 687.0 | 0 | 108 | 136 | 498 | 0 | 97.0 | 0.3 | do-blr1-loadgen-4vcpu-8gb |
 | node-http-v03-bun-sql | node-http | 4500 | FAIL | 1954.7 | 117280 | 189837 | 416.9 | 956.9 | 1087.9 | 1546.8 | 1785 | 397.7 | 1060 | 998.8 | 0 | 109 | 132 | 500 | 0 | 99.8 | 0.7 | do-blr1-loadgen-4vcpu-8gb |
 | node-http-v04-bun-serve | node-http | 4500 | PASS | 2324.2 | 139452 | 214994 | 14.8 | 174.4 | 319.2 | 911.5 | 1485 | 1.5 | 270.7 | 193.5 | 0 | 59 | 133 | 464 | 0 | 94.1 | 0.2 | do-blr1-loadgen-4vcpu-8gb |
+| node-http-v04-bun-serve | node-http | 4700 | FAIL | 2143.5 | 128609 | 204841 | 162.6 | 1001.0 | 1188.2 | 1546.8 | 1837 | 128.9 | 1157.9 | 1095.5 | 0 | 61 | 133 | 461 | 0 | 99.1 | 0.6 | do-blr1-loadgen-4vcpu-8gb |
 <!-- RESULTS:END -->
 
 ## Reproducing

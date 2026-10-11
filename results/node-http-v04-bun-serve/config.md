@@ -1,9 +1,11 @@
 # node-http-v04-bun-serve
 
 ## Summary
-**Capacity: ≥ 4500 VUs at 2324 req/s (139,452 req/min)** — the only level tested, PASS: steady p50 15 ms / p95
-319 ms / p99 912 ms, 0 % errors. No failing level yet: the edge is above 4500 VUs, but the 4 vCPU load generator is
-close to its limit there, so the user stopped here. **Best result of the project so far**: +7 % VUs over v02 (4200)
+**Capacity: 4500 VUs at 2324 req/s (139,452 req/min)**, steady p50 15 ms / p95 319 ms / p99 912 ms, 0 % errors.
+**First fail: 4700 VUs** (added after the first release), in two runs, both on a slow host: 2212 req/s (p95 934 /
+p99 1093 ms, probe 104 ms) and, rerun, 2144 req/s (p95 1188 / p99 1547 ms, probe 148 ms); the 4500 pass ran at probe
+82 ms. The CPU was at 100 % and the latency was pool wait in both, so the 4700 failures are server-side, but on a
+normal-speed host 4700 might pass. **Best result of the project so far**: +7 % VUs over v02 (4200)
 and +12 % req/s over v02's best (2078–2097 req/s at 4200–4500 VUs); v02 and v03 both failed 4500 VUs.
 
 - **`Bun.serve` cuts the app's work per request by ≈ 25 %.** App : Postgres CPU ratio 0.91 (Bun 40.7 % / PG 44.6 %)
@@ -47,13 +49,15 @@ DB) gave responses identical to v01–v03. App code from commit `d4b36f2`.
   traffic to the target's private IP 10.122.0.2
 
 ## Results
-Level chosen by the user: 4500 (first fail of v02 and v03).
+Levels chosen by the user: 4500 (first fail of v02 and v03), then 4700 twice (added after the first release; the
+rerun replaces the first run in `vus-4700/`).
 
 | VUs | Result | Steady req/s | p50 ms | p95 ms | p99 ms | Error % | Server p50 / p95 | conn p50 / p95 | db p50 / p95 | CPU % (app / PG) | CPU ms/req | Probe before / after ms | Used MB | Feed hit rate |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | **4500** | **PASS** | **2324.2** | **14.8** | **319.2** | **911.5** | 0.00 | 1.5 / 270.7 | 0 / 193.5 | 0.8 / 11.3 | 94.1 (40.7 / 44.6) | 0.40 | 82 / 96 | 464 | 99.7 % |
+| 4700 | FAIL (p95, p99) | 2143.5 | 162.6 | 1188.2 | 1546.8 | 0.00 | 128.9 / 1157.9 | 0 / 1095.5 | 3.1 / 14.4 | 99.1 (43.6 / 46.1) | 0.46 | 148 / 95 | 461 | 99.7 % |
 
-**Capacity: ≥ 4500 VUs at 2324.2 req/s** (no failing level tested). At 4500 VUs: v02 FAIL 2097 req/s (p99 1045 ms),
+**Capacity: 4500 VUs at 2324.2 req/s.** First fail: 4700 VUs (slow host; see below). At 4500 VUs: v02 FAIL 2097 req/s (p99 1045 ms),
 v03 FAIL 1955 req/s (p99 1547 ms, slow host).
 
 ## Observations
@@ -62,6 +66,9 @@ v03 FAIL 1955 req/s (p99 1547 ms, slow host).
 - Time outside the app (client − server) p50 13 ms / p95 49 ms: the p95 is the highest so far and coincides with the
   load generator's CPU peaks, so part of the tail is on the client side.
 - Feed-cache hit rate 99.7 %; `app_log_tail.txt` has no errors.
+- 4700 VUs, first run (replaced): FAIL, 2211.7 req/s, p50 156 / p95 934 / p99 1093 ms, CPU 98.5 % (Bun 43.1 / PG 45.9),
+  0.45 ms CPU/req, probe 104.5 / 83.0 ms, load generator 53 % average. Rerun (kept): probe 148 ms before, the slowest
+  host of the session. Both runs: CPU pinned, `conn` p95 880–1096 ms, time outside the app p95 19–30 ms (not k6).
 
 ## Next idea
 Node/Bun is saved here (user's decision). Next phase: Python frameworks (Phase 3: FastAPI + uvicorn + asyncpg first),
