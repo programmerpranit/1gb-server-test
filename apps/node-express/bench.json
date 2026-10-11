@@ -6,5 +6,5 @@
   "db_driver": "pg 8.23.1",
   "db_pool": "pg.Pool defaults (max 10)",
   "workers": 1,
-  "change": "prepared statements (pg named queries); parent v04"
+  "change": "in-process cache of GET /posts (all pages, key limit+before, TTL 1 s, single-flight); parent v05"
 }
