@@ -351,7 +351,10 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
       first fail 4500 (CPU 100 %, ceiling ≈ 2100 req/s); app : PG CPU 1.28 vs. 1.48 on Node.
 - [x] `pool-20` on Bun (parent v02), **not released**: 4500 VUs FAIL, 2104 req/s (= pool 10), query time 2×, p99
       1404 vs. 1045 ms. The CPU is the ceiling, not the pool; keep pool 10.
-- [ ] Then: `Bun.sql` / `Bun.serve`; bigger load generator before ≫ 4500 VUs; Go / Rust.
+- [x] **`node-http-v03-bun-sql`** (parent v02) — Bun.sql instead of pg. 4500 VUs FAIL (1955 req/s, slow host); app : PG
+      1.22 vs. 1.29, ≤ 5 % gain. Released as base for v04 (user decision).
+- [ ] **`node-http-v04-bun-serve`** (parent v03) — `Bun.serve` instead of `node:http`.
+- [ ] Then: bigger load generator before ≫ 4500 VUs; Go / Rust.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
 Candidates, roughly in order: pool size (5 / 20 / 50); `pg-native` or prepared statements; Postgres tuning

@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>node-http-v03-bun-sql report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: one reading column (max 1180px) with a measurement-sheet masthead; charts in a 2-up grid that stacks. */
+:root{
+  --bg:#f4f6f8; --surface:#ffffff; --ink:#15202b; --muted:#5b6876; --line:#d9e0e7; --accent:#2457c5;
+  --pass:#1d7a46; --pass-bg:#e3f3ea; --fail:#b42318; --fail-bg:#fde8e6;
+  --s-client:#2457c5; --s-p99:#7a8aa3; --s-srv:#0f8b8d; --s-conn:#c4760f; --s-db:#0f8b8d; --s-app:#8b5cf6;
+  --s-cpu:#15202b; --s-node:#2457c5; --s-pg:#c4760f; --s-mem:#0f8b8d; --band:rgba(36,87,197,.07);
+  --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+  --f-body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1419; --surface:#161d24; --ink:#e3e9ef; --muted:#93a1b0; --line:#2a3440; --accent:#7aa2ff;
+  --pass:#5cc98a; --pass-bg:#173326; --fail:#ff8a7a; --fail-bg:#3a1d1a;
+  --s-client:#7aa2ff; --s-p99:#8d9bb0; --s-srv:#3cc7c4; --s-conn:#f0a640; --s-db:#3cc7c4; --s-app:#b69bff;
+  --s-cpu:#e3e9ef; --s-node:#7aa2ff; --s-pg:#f0a640; --s-mem:#3cc7c4; --band:rgba(122,162,255,.09); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1419; --surface:#161d24; --ink:#e3e9ef; --muted:#93a1b0; --line:#2a3440; --accent:#7aa2ff;
+  --pass:#5cc98a; --pass-bg:#173326; --fail:#ff8a7a; --fail-bg:#3a1d1a;
+  --s-client:#7aa2ff; --s-p99:#8d9bb0; --s-srv:#3cc7c4; --s-conn:#f0a640; --s-db:#3cc7c4; --s-app:#b69bff;
+  --s-cpu:#e3e9ef; --s-node:#7aa2ff; --s-pg:#f0a640; --s-mem:#3cc7c4; --band:rgba(122,162,255,.09); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font:15px/1.6 var(--f-body); margin:0}
+.page{max-width:1180px; margin:0 auto; padding-inline:clamp(16px,4vw,40px); padding-block:28px 56px; display:grid; gap:40px}
+h1,h2,h3{font-family:var(--f-display); text-wrap:balance; line-height:1.15; margin:0}
+h1{font-size:clamp(28px,4.4vw,44px); font-weight:800; font-stretch:80%; letter-spacing:-.01em; overflow-wrap:anywhere}
+h2{font-size:22px; font-weight:700; font-stretch:85%; margin-bottom:14px}
+h3{font-size:17px; margin:18px 0 8px}
+p,li{max-width:76ch}
+code{font-family:var(--f-mono); font-size:.86em; background:color-mix(in srgb,var(--line) 55%,transparent); padding:1px 5px; border-radius:4px}
+section{min-width:0}
+section ul{padding-left:20px; margin:0; display:grid; gap:8px}
+section p{margin:0 0 10px}
+.eyebrow{font:500 12px/1.4 var(--f-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 8px}
+.meta{color:var(--muted); margin:10px 0 0; font-size:14px}
+.masthead{border-bottom:2px solid var(--ink); padding-bottom:22px}
+.verdict{display:grid; grid-template-columns:1.4fr repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin-top:22px}
+.verdict>div{background:var(--surface); padding:14px 16px; display:flex; flex-direction:column; gap:2px; min-width:0}
+.v-label{font:500 11px/1.3 var(--f-mono); letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.v-value{font:800 34px/1.1 var(--f-display); font-stretch:80%; color:var(--accent); font-variant-numeric:tabular-nums}
+.v-value.small{font-size:24px; color:var(--ink)}
+.v-sub{color:var(--muted); font-size:13px}
+.v-rule{font:13px/1.5 var(--f-mono)}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px}
+.kpi{background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:12px 14px; display:flex; flex-direction:column; gap:2px}
+.kpi span{font:500 11px/1.3 var(--f-mono); letter-spacing:.05em; text-transform:uppercase; color:var(--muted)}
+.kpi b{font:700 24px/1.2 var(--f-display); font-stretch:85%; font-variant-numeric:tabular-nums}
+.kpi em{font-style:normal; color:var(--muted); font-size:12.5px}
+.note{color:var(--muted); font-size:13.5px}
+.table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:6px; background:var(--surface)}
+table{border-collapse:collapse; width:100%; font-size:13.5px}
+th,td{padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; vertical-align:top}
+th{font:500 11px/1.3 var(--f-mono); letter-spacing:.05em; text-transform:uppercase; color:var(--muted); background:color-mix(in srgb,var(--line) 30%,var(--surface))}
+tbody tr:last-child td{border-bottom:0}
+td.num{font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+td.strong{font-weight:500}
+td.over{color:var(--fail); font-weight:500}
+tr.best td{background:color-mix(in srgb,var(--pass-bg) 60%,transparent)}
+.sub{color:var(--muted)}
+.chip{display:inline-block; font:500 11px/1 var(--f-mono); letter-spacing:.05em; text-transform:uppercase; padding:4px 7px; border-radius:3px}
+.chip.pass{color:var(--pass); background:var(--pass-bg)}
+.chip.fail{color:var(--fail); background:var(--fail-bg)}
+.why{display:block; color:var(--muted); font-size:12px; margin-top:4px}
+.grid2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px}
+figure{margin:0; background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:12px 14px 10px; min-width:0}
+figcaption{font:600 14px/1.3 var(--f-body); margin-bottom:8px}
+figcaption span{display:block; font:400 12px/1.4 var(--f-mono); color:var(--muted)}
+.chart{position:relative; height:280px}
+.picker{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px}
+.picker button{font:500 13px/1 var(--f-mono); padding:8px 12px; border-radius:4px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer}
+.picker button[aria-selected="true"]{background:var(--accent); border-color:var(--accent); color:var(--surface)}
+.picker button:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+footer{border-top:1px solid var(--line); padding-top:14px; color:var(--muted); font-size:13px}
+@media (max-width:760px){.verdict{grid-template-columns:1fr 1fr}.verdict>div:first-child{grid-column:1/-1}.grid2{grid-template-columns:1fr}.chart{height:240px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="masthead">
+  <p class="eyebrow">1 GB server test · protocol v2 · Ubuntu 24.04.5 LTS on a $6 droplet (1 vCPU / 1 GB)</p>
+  <h1>node-http-v03-bun-sql</h1>
+  <p class="meta">node:http (no framework) · Bun.sql (Bun 1.4.2 native client)
+    · pool: Bun.sql pool max 10 · Node v24.21.0 · Postgres 16.15
+    · load from <code>do-blr1-loadgen-4vcpu-8gb</code> · app 59a30b1</p>
+  <div class="verdict">
+    <div class="v-main"><span class="v-label">Capacity</span><span class="v-value">< 4,500 VUs</span>
+      <span class="v-sub">no level passed</span></div>
+    <div><span class="v-label">First failing level</span><span class="v-value small">4,500 VUs</span></div>
+    <div><span class="v-label">Highest throughput seen</span><span class="v-value small">1,954.7 req/s</span></div>
+    <div><span class="v-label">Pass rule</span><span class="v-rule">p50 &lt; 500 · p95 &lt; 800 · p99 &lt; 1000 ms<br>errors &lt; 1 %</span></div>
+  </div>
+</header>
+
+<section class="kpis" aria-label="At capacity">
+  <div class="kpi"><span>Steady throughput</span><b>1,954.7</b><em>req/s · 117,280 req/min</em></div>
+  <div class="kpi"><span>Client p95 / p99</span><b>1,088 / 1,547</b><em>ms, steady phase</em></div>
+  <div class="kpi"><span>Server time p50</span><b>397.7</b><em>ms inside the app</em></div>
+  <div class="kpi"><span>Spent getting a connection</span><b>24 %</b><em>of server p50 (95.5 ms)</em></div>
+  <div class="kpi"><span>CPU (1 vCPU)</span><b>100 %</b><em>Node 50 · Postgres 41</em></div>
+  <div class="kpi"><span>Memory used</span><b>500 MB</b><em>of 961 MB · Node 109 · PG 132</em></div>
+</section>
+
+<section id="summary"><h2>Summary</h2><p><strong>Only one level tested: 4500 VUs FAIL</strong> — 1955 req/s, steady p50 417 ms / p95 1088 ms / p99 1547 ms (limits 800 / 1000), 0 % errors. Capacity by the rule is therefore "&lt; 4500" (not measured below); the parent v02 (<code>pg</code> on Bun) passed 4200 VUs and also failed 4500. <strong>No measurable gain from Bun's native Postgres client.</strong> Kept as the base for <code>Bun.serve</code> (v04) by the user's decision.</p>
+<ul><li><strong>At most ≈ 5 % less app work per query.</strong> The app : Postgres CPU ratio at 4500 VUs is 1.22 (Bun 49.9 % / PG 40.8 %) vs. 1.29 for v02 (51.4 % / 39.7 %). This ratio does not depend on host speed. Query time is unchanged (<code>db</code> p95 17 vs. 15 ms): the native client does not make Postgres faster, only the client side slightly cheaper.</li><li><strong>Throughput at the edge is confounded by host speed.</strong> Both runs had the CPU at 100 % for the whole hold phase, so req/s follows the host: v03 started on a ≈ 30 % slower host (probe 108 ms before vs. 83 ms for v02). 1955 vs. 2097 req/s (−7 %) and 0.51 vs. 0.48 ms CPU per request are within that difference.</li><li><strong>Bottleneck unchanged:</strong> CPU-bound, Bun ≈ 50 % / Postgres ≈ 41 %, latency past the edge is pool wait (<code>conn</code> p95 999 ms). Memory 500 MB used, Bun PSS 109 MB, Postgres 132 MB, no swap. Load generator 48 % average, peaks 100 %; time outside the app p95 28 ms.</li><li><strong>Next:</strong> v04 = <code>Bun.serve</code> instead of <code>node:http</code> on top of this (user's plan).</li></ul></section>
+
+<section id="levels">
+  <h2>Levels tested</h2>
+  <p class="note">Latency is the client-observed steady phase (60 s hold). Red values miss the pass rule. Server and conn come from the app's <code>Server-Timing</code> header, p50 / p95 in ms.</p>
+  <div class="table-wrap"><table class="levels">
+    <thead><tr><th>VUs</th><th>Result</th><th>req/s</th><th>p50</th><th>p95</th><th>p99</th><th>Errors %</th><th>Server</th><th>Conn</th><th>CPU % (Node / PG)</th><th>Used MB</th><th>Load gen CPU %</th></tr></thead>
+    <tbody><tr><td class="num strong">4,500</td><td><span class="chip fail">Fail</span><span class="why">p95 1088&gt;=800ms, p99 1547&gt;=1000ms</span></td><td class="num">1,954.7</td><td class="num">417</td><td class="num over">1,088</td><td class="num over">1,547</td><td class="num">0.00</td><td class="num">398 / 1,060</td><td class="num">95 / 999</td><td class="num">100 <span class="sub">(50 / 41)</span></td><td class="num">500</td><td class="num">100</td></tr></tbody>
+  </table></div>
+</section>
+
+<section id="across">
+  <h2>Across levels</h2>
+  <div class="grid2">
+    <figure><figcaption>Client latency vs. users <span>steady phase, ms; dashed = limits</span></figcaption><div class="chart"><canvas id="c-lat"></canvas></div></figure>
+    <figure><figcaption>Where server time goes <span>p50 per request, ms</span></figcaption><div class="chart"><canvas id="c-split"></canvas></div></figure>
+  </div>
+</section>
+
+<section id="timeline">
+  <h2>During the run</h2>
+  <div class="picker" role="tablist" aria-label="VU level"><button role="tab" type="button" data-vus="4500" id="tab-4500">4,500 VUs</button></div>
+  <p class="note">From k6's 2-second snapshots and the 1-second server samples, aligned on the k6 start. The shaded band is the 60 s ramp; the hold phase follows.</p>
+  <div class="grid2">
+    <figure><figcaption>Load <span>active users, req/s, failed req/s</span></figcaption><div class="chart"><canvas id="c-load"></canvas></div></figure>
+    <figure><figcaption>Latency over time <span>2 s windows, ms</span></figcaption><div class="chart"><canvas id="c-time"></canvas></div></figure>
+    <figure><figcaption>Target droplet <span>CPU % of 1 vCPU, memory used MB</span></figcaption><div class="chart"><canvas id="c-cpu"></canvas></div></figure>
+    <figure><figcaption>p95 by endpoint <span>client vs. server, ms, whole run</span></figcaption><div class="chart"><canvas id="c-ep"></canvas></div></figure>
+  </div>
+</section>
+
+<section id="changed"><h2>What changed vs. the previous tag</h2><p>Parent: <code>node-http-v02-bun</code>. One change: <strong>the Postgres client, node-postgres (<code>pg</code> 8.23.1) → Bun.sql</strong> (Bun 1.4.2's built-in client, <code>new SQL({ url, max: 10 })</code>). Every request still reserves one connection (<code>sql.reserve()</code>) for all its queries, timed as <code>conn</code>; queries are tagged templates (prepared and cached per connection by Bun.sql), timed as <code>db</code>. Adjustments needed for identical responses: every parameter has an explicit cast (<code>::bigint</code>, <code>::int</code>, <code>::text</code>, <code>::boolean</code>) so numbers never travel as float8; Bun.sql returns int8 columns as strings, so <code>id</code>, <code>user_id</code> and <code>post_id</code> are converted with <code>Number()</code> in the query wrapper (node-postgres did the same with a type parser); the SQLSTATE of a server error is in <code>err.errno</code> (<code>err.code</code> is Bun's own code). The <code>pg</code> dependency is removed. The parity check (39 requests on a fresh DB) gave responses identical to v01/v02. App code from commit <code>ed0c70a</code>.</p></section>
+<section id="config"><h2>Full configuration</h2><ul><li>App: <code>apps/node-http</code> — plain <code>node:http</code> API on Bun's Node compatibility layer, <strong>Bun.sql</strong>, plain SQL, no ORM (app code from commit <code>ed0c70a</code>)</li><li>Runtime: Bun 1.4.2, <code>NODE_ENV=production</code>, no flags</li><li>App processes/workers: 1 (systemd <code>bench-app</code>)</li><li>DB connections: Bun.sql pool, max 10, one reserved connection per request</li><li>Queries: prepared (Bun.sql default), explicit parameter casts</li><li>Writes: single statement (CTE), no explicit transactions</li><li>Cache: in-process, <code>GET /posts</code> only, all pages, key limit + before, TTL 1 s, single-flight, no invalidation (labelled trade-off: global feed up to 1 s stale)</li><li>Server timing: <code>Server-Timing: conn, db, app, total</code> on every response (cache hit: conn 0, db 0)</li><li>Postgres: 16.15, defaults (<code>shared_buffers=128MB</code>, <code>max_connections=100</code>), localhost TCP, SCRAM auth</li><li>Swap: off</li><li>Reverse proxy: none (nginx installed but disabled)</li><li>Load generator: DigitalOcean droplet in blr1, 4 vCPU / 8 GB shared (<code>do-blr1-loadgen-4vcpu-8gb</code>), k6 v2.3.0, traffic to the target's private IP 10.122.0.2</li></ul></section>
+<section id="observations"><h2>Observations</h2><ul><li>The CPU was at 97–100 % for the entire hold phase; no client stalls.</li><li>Feed-cache hit rate 99.7 %, as before; <code>app_log_tail.txt</code> has no errors.</li><li>A repeat run on a normal-speed host was offered and not chosen: the host-independent CPU split already bounds the gain at ≈ 5 %.</li></ul></section>
+<section id="next"><h2>Next idea</h2><p><code>node-http-v04-bun-serve</code> (parent v03): <code>Bun.serve</code> (Bun's native HTTP server, <code>fetch(Request) → Response</code>) instead of <code>node:http</code> on Bun's compatibility layer, the only change. Test at 4500 VUs.</p></section>
+
+<footer>
+  <p>Generated 2026-10-11 16:45 UTC by <code>scripts/report_html.py</code> from <code>results/node-http-v03-bun-sql/</code>. Raw data per level: <code>summary.json</code>, <code>k6_summary.json</code>, <code>k6_report.html</code> (full k6 dashboard), <code>server_metrics.csv</code>, <code>loadgen_metrics.csv</code>.</p>
+</footer>
+</div>
+<script type="application/json" id="report-data">{"levels":[{"vus":4500,"pass":false,"fail_reasons":["p95 1088>=800ms","p99 1547>=1000ms"],"rps":1954.6666666666667,"rpm":117280.0,"total":189837,"err":0,"lat":{"avg":463.5006027157829,"med":416.9358145,"p90":956.8625000000001,"p95":1087.9499927499999,"p99":1546.7725419799974,"max":1784.543235},"srv":{"total":{"med":397.7,"p95":1060,"p99":1502.1419999999982,"max":1772},"conn":{"med":95.45,"p95":998.8,"p99":1463.6209999999992,"max":1747.3},"db":{"med":4,"p95":17,"p99":31.8,"max":197.3},"app":{"med":0.1,"p95":742.8199999999953,"p99":1084.2419999999984,"max":1657.8}},"outside":{"med":19.235814500000004,"p(95)":27.949992749999865},"cpu":99.85,"app_cpu":49.89833333333333,"pg_cpu":40.815000000000005,"steal":0.7183333333333334,"mem_used":500.0,"app_mb":109.0,"pg_mb":132.0,"lg_cpu":100.0,"endpoints":{"DELETE /posts/:id/like":[1098.5899970000003,1064.9650000000001],"GET /me/posts":[1067.1913743499995,1031.7249999999995],"POST /posts/:id/comments":[1079.0987593999996,1052.955],"GET /posts":[836.0104422999998,808.6],"POST /posts":[1063.616804,1030.05],"GET /users/:id/posts":[1068.8755622999997,1033],"GET /posts/:id":[1072.3421208999998,1037.2549999999999],"POST /posts/:id/like":[1065.4728943999999,1027.7449999999994]},"ramp_s":60,"hold_s":60,"k6":{"start_ms":1791736907307,"t":[2.0,4.0,6.0,8.0,10.0,12.0,14.0,16.0,18.0,20.0,22.0,24.0,26.0,28.0,30.0,32.0,34.0,36.0,38.0,40.0,42.0,44.0,46.0,48.0,50.0,52.0,54.0,56.0,58.0,60.0,62.0,64.0,66.0,68.0,70.0,72.0,74.0,76.0,78.0,80.0,82.0,84.0,86.0,88.0,90.0,92.0,94.0,96.0,98.0,100.0,102.0,104.0,106.0,108.0,110.0,112.0,114.0,116.0,118.0,120.0,122.0,124.0,126.0],"vus":[0,58,208,358,508,658,808,957,1108,1258,1408,1558,1708,1858,2008,2158,2308,2533,2608,2758,2983,3058,3208,3358,3508,3658,3808,3958,4108,4258,4408,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,4500,3381,744],"rps":[0,75,145,240,308,393,509,553,640,725.5,828,856.5,975,1054,1124.5,1218,1276.5,1373.5,1408,1598,1598,1702,1682.5,1793,1947,2002.5,2026,1841,1844.5,1808.5,1847.5,1892,1748.5,1140,2052,2321.5,1756,2004,2100,2103.5,2280.5,2203.5,2410,2015,1809.5,2014,2179.5,2380.5,1863,1701,2099.5,1720,1822.5,1896,1779,1668,1993,1932,2115.5,1946.5,1627,952.5,0],"failed_rps":[0,0,0,0,0,0,0,0,0,0.0,0,0.0,0,0,0.0,0,0.0,0.0,0,0,0,0,0.0,0,0,0.0,0,0,0.0,0.0,0.0,0,0.0,0,0,0.0,0,0,0,0.0,0.0,0.0,0,0,0.0,0,0.0,0.0,0,0,0.0,0,0.0,0,0,0,0,0,0.0,0.0,0,0.0,0],"p50":[null,4.0881,3.043,2.13,1.8034,1.7215,2.8609,2.3799,1.7562,2.0252,2.019,2.5597,1.6082,1.6276,2.3708,2.241,2.2956,3.4116,2.3976,9.931,4.9137,20.845,8.3274,16.513,20.289,10.553,52.337,133.06,400.57,668.94,629.94,719.53,785.61,984.96,1369,54.535,88.162,736.9,297.01,427.2,190.01,141.31,180.68,19.75,677.4,535.33,345.88,207.66,249.34,701.55,727.05,429.52,883.88,770.38,634.99,998.68,718.55,484.63,411.23,486.52,802.26,1115,null],"p95":[null,85.844,6.9907,6.6474,5.6455,4.9811,16.068,8.9322,7.6776,9.092,7.7126,48.741,9.6092,10.923,50.35,15.72,37.304,79.944,39.96,81.526,50.218,219.87,43.074,113.76,83.279,88.277,144.67,348.28,535,805.74,807.1,867.83,897.92,1417.2,1736.7,834.57,803.49,1126.5,572.13,543.09,380.37,327.45,330.53,387.96,949.65,850.62,442.33,353.68,394.88,989.59,1008.5,961.96,973.45,878.47,751.18,1159.4,1090.7,571.1,571.73,638.92,978.91,1229.4,null],"p99":[null,98.041,12.698,14.111,8.816,9.7147,25.219,16.85,17.172,23.321,10.735,94.739,29.075,23.791,101.1,30.681,73.716,111.73,70.347,98.37,68.951,232.36,68.938,125.72,109.16,108.93,184.72,363.76,571.37,830.79,829,885.75,910.8,1486.8,1764.2,1008.4,813.07,1164.4,674.08,558.14,415.57,336.44,359.41,429.08,1003.2,879.87,457.59,371.7,521.33,1021,1059.1,1000.7,1026.8,897.55,820.02,1186.7,1125.7,580.93,596.34,654.22,1024.2,1238.3,null],"srv_p95":[null,61.48,5.7,4.8049,4.625,3.7,9.3,6,4.9,5.3,4.7,25.979,4.5,4.9,26.759,5.7,16.38,61.219,23.175,64.759,34.6,191.35,22.369,103.3,66.429,74.079,113.4,337.9,521.8,776.62,790.6,854.77,886.92,1405.1,1724.4,824.38,722.54,942.76,558.01,531.7,372.33,312.65,317.11,374.7,906.64,834.97,430.4,344.07,335.82,974.2,994.8,941.61,952.8,869.2,731.8,1142.4,1071,558.4,556.25,616.7,964.9,1204.4,null],"conn_p95":[null,0.1,0.1,0,0,0,0,0,0,0,0,4.6599,0,0,12.559,0,1.3,50.069,13.2,53,23.059,179.66,12.4,93.9,56.6,66.6,105.14,329.7,510.9,766.37,779.23,844.47,873.85,1321.4,1712.6,813.28,712.8,932.76,544.79,523.43,363.6,306.16,304,365.5,893.81,822.76,422.1,333.8,320.77,965,986.52,929.1,943.8,856.97,719.93,1133.7,1062.3,548.79,549,606.34,953.3,1194,null],"db_p95":[null,55.559,5.3,4.6049,4.4,3.575,9.1,5.8,4.8,5.2,4.6,11.2,4.4,4.8599,9.3599,5.5,8.78,11.469,7.9,15.8,13.5,16.484,11.3,15.5,15.6,13,14.5,16.9,17.409,18.519,18.1,17.584,18.619,29.939,15.889,12.4,19.9,15.3,16,14.469,13.7,14.1,13.605,16.5,18.9,15.3,14.8,14,17.3,20.3,15.4,24.009,16.184,18.3,19.9,20.5,15.8,17.184,14.6,17.9,21.8,25.5,null]},"server":{"t":[-7.5,-6.5,-5.5,-4.5,-3.5,-2.5,-1.5,-0.5,0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5,10.5,11.5,12.5,13.5,14.5,15.5,16.5,17.5,18.5,19.5,20.5,21.5,22.5,23.5,24.5,25.5,26.5,27.5,28.5,29.5,30.5,31.5,32.5,33.5,34.5,35.5,36.5,37.5,38.5,39.5,40.5,41.5,42.5,43.5,44.5,45.5,46.5,47.5,48.5,49.5,50.5,51.5,52.5,53.5,54.5,55.5,56.5,57.5,58.5,59.5,60.5,61.5,62.5,63.5,64.5,65.5,66.5,67.5,68.5,69.5,70.5,71.5,72.5,73.5,74.5,75.5,76.5,77.5,78.5,79.5,80.5,81.5,82.5,83.5,84.5,85.5,86.5,87.5,88.5,89.5,90.5,91.5,92.5,93.5,94.5,95.5,96.5,97.5,98.5,99.5,100.5,101.5,102.5,103.5,104.5,105.5,106.5,107.5,108.5,109.5,110.5,111.5,112.5,113.5,114.5,115.5,116.5,117.5,118.5,119.5,120.5,121.5,122.5,123.5,124.5,125.5,126.5,127.5,128.5,129.5,130.5,131.5],"cpu":[1.0,1.0,2.0,1.0,1.0,2.0,1.0,2.0,28.3,27.8,31.6,35.4,36.7,40.6,38.8,41.8,39.4,44.9,60.2,67.7,64.4,58.2,51.5,57.6,68.0,68.4,53.5,65.7,78.8,71.7,64.9,66.7,66.3,71.3,72.7,72.2,70.7,73.7,76.2,82.7,86.0,77.8,79.2,82.0,86.9,91.0,89.0,90.1,97.0,98.0,89.0,90.8,97.0,100.0,99.0,100.0,95.1,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,99.0,97.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,98.0,100.0,100.0,100.0,97.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,100.0,30.6,11.2,23.0,35.4,50.0,5.9,5.1,6.0,5.0,6.0,13.0],"app_cpu":[0.3,0.1,0.3,0.0,0.1,0.2,0.0,0.1,14.3,17.1,17.6,19.2,20.9,23.1,24.1,22.7,22.9,24.5,31.6,37.1,35.7,34.1,28.8,31.7,39.5,41.5,29.1,36.7,46.3,42.0,35.0,35.8,35.1,37.0,38.6,35.6,37.7,38.2,39.5,47.0,43.5,40.1,38.2,41.7,42.7,45.2,43.5,42.8,49.8,46.2,43.6,42.4,46.3,46.5,46.7,48.4,45.5,46.4,45.2,45.6,48.1,47.2,48.5,49.4,49.4,47.7,48.7,52.4,47.5,43.9,46.7,50.0,45.4,32.7,38.2,48.2,48.4,49.9,53.9,54.3,50.1,49.6,50.2,51.7,53.1,49.7,50.6,48.9,47.6,51.4,50.4,47.9,48.1,53.2,52.0,51.1,51.3,50.0,52.9,50.5,51.7,49.5,50.3,54.2,49.5,51.8,48.6,48.6,51.0,50.6,50.0,53.5,50.7,49.5,50.5,56.5,51.7,49.8,48.3,49.0,49.7,53.2,48.3,52.0,50.4,54.0,50.0,51.6,44.3,14.3,4.6,10.6,22.5,5.5,0.1,0.1,0.0,0.0,0.1,0.3],"pg_cpu":[0.1,0.1,0.1,0.0,0.0,0.0,0.1,0.3,11.5,8.0,10.2,11.4,11.2,13.5,10.4,13.1,12.5,14.4,19.0,23.2,20.5,17.5,16.9,18.6,22.0,19.5,19.3,21.8,25.3,22.7,22.4,24.7,22.5,27.0,25.6,28.1,25.9,28.3,28.8,27.8,34.3,30.6,31.7,32.9,35.7,37.8,36.7,39.5,38.7,41.8,38.9,40.0,44.0,44.7,43.9,42.9,43.2,45.3,45.9,46.3,44.2,44.6,43.2,43.0,41.2,44.0,44.3,39.4,44.1,46.1,45.4,41.0,45.6,58.1,52.7,42.5,43.2,38.6,36.5,31.5,40.6,42.2,42.1,38.9,38.9,42.1,42.2,43.2,41.7,40.1,41.4,43.7,41.2,36.2,37.5,37.9,40.1,42.0,38.4,41.7,40.9,42.7,41.5,37.5,39.4,37.4,42.6,43.1,37.6,37.2,41.6,38.6,39.2,40.9,40.9,33.4,37.9,40.0,43.7,40.4,40.6,38.3,43.2,39.2,39.6,37.2,39.1,37.8,41.7,8.5,0.0,0.0,0.0,37.4,0.1,0.0,0.1,0.0,0.1,0.0],"mem_used":[329.0,329.0,329.0,329.0,329.0,329.0,329.0,329.0,343.0,348.0,354.0,358.0,363.0,368.0,373.0,378.0,383.0,386.0,391.0,394.0,398.0,402.0,406.0,410.0,413.0,426.0,424.0,422.0,425.0,427.0,430.0,432.0,434.0,439.0,439.0,442.0,442.0,441.0,440.0,443.0,443.0,443.0,445.0,449.0,449.0,451.0,453.0,455.0,456.0,456.0,455.0,455.0,458.0,460.0,462.0,462.0,462.0,461.0,463.0,466.0,469.0,472.0,473.0,475.0,474.0,474.0,475.0,477.0,474.0,480.0,484.0,483.0,482.0,500.0,498.0,491.0,499.0,498.0,489.0,491.0,490.0,489.0,490.0,490.0,488.0,490.0,490.0,489.0,481.0,482.0,485.0,486.0,485.0,486.0,494.0,493.0,492.0,492.0,493.0,492.0,485.0,484.0,484.0,486.0,486.0,488.0,489.0,493.0,492.0,493.0,494.0,493.0,494.0,495.0,495.0,494.0,487.0,490.0,488.0,491.0,491.0,491.0,491.0,485.0,484.0,486.0,483.0,488.0,488.0,489.0,489.0,484.0,477.0,484.0,484.0,484.0,484.0,484.0,484.0,484.0],"conns":[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,67.0,144.0,217.0,294.0,369.0,442.0,518.0,592.0,668.0,744.0,820.0,895.0,969.0,1044.0,1120.0,1196.0,1270.0,1344.0,1421.0,1498.0,1572.0,1646.0,1720.0,1797.0,1871.0,1948.0,2023.0,2096.0,2171.0,2247.0,2323.0,2398.0,2472.0,2549.0,2622.0,2697.0,2774.0,2849.0,2924.0,2997.0,3077.0,3147.0,3223.0,3298.0,3375.0,3450.0,3524.0,3598.0,3674.0,3750.0,3824.0,3899.0,3975.0,4048.0,4124.0,4201.0,4275.0,4348.0,4423.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4500.0,4189.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]},"loadgen":{"t":[-3.5,-2.5,-1.5,-0.5,0.5,1.5,2.5,3.5,4.5,5.5,6.5,7.5,8.5,9.5,10.5,11.5,12.5,13.5,14.5,15.5,16.5,17.5,18.5,19.5,20.5,21.5,22.5,23.5,24.5,25.5,26.5,27.5,28.5,29.5,30.5,31.5,32.5,33.5,34.5,35.5,36.5,37.5,38.5,39.5,40.5,41.5,42.5,43.5,44.5,45.5,46.5,47.5,48.5,49.5,50.5,51.5,52.5,53.5,54.5,55.5,56.5,57.5,58.5,59.5,60.5,61.5,62.5,63.5,64.5,65.5,66.5,67.5,68.5,69.5,70.5,71.5,72.5,73.5,74.5,75.5,76.5,77.5,78.5,79.5,80.5,81.5,82.5,83.5,84.5,85.5,86.5,87.5,88.5,89.5,90.5,91.5,92.5,93.5,94.5,95.5,96.5,97.5,98.5,99.5,100.5,101.5,102.5,103.5,104.5,105.5,106.5,107.5,108.5,109.5,110.5,111.5,112.5,113.5,114.5,115.5,116.5,117.5,118.5,119.5,120.5,121.5,122.5,123.5,124.5,125.5,126.5,127.5,128.5,129.5,130.5],"cpu":[3.3,17.1,99.5,98.3,40.8,5.8,6.1,8.9,7.9,9.9,9.9,12.7,12.5,13.6,18.9,22.3,21.3,19.1,18.8,19.7,23.7,22.6,67.7,26.1,19.4,22.4,21.8,23.7,22.6,24.2,27.5,57.7,54.8,35.6,29.0,26.6,27.3,27.2,28.7,56.1,80.4,33.8,32.8,37.7,38.5,36.4,33.2,94.2,43.9,37.8,37.3,36.6,37.4,45.9,99.7,50.1,34.2,37.3,34.0,31.9,30.3,84.9,70.4,37.6,34.7,37.3,33.2,34.9,30.4,44.9,77.8,35.9,40.9,45.2,44.9,37.3,76.6,87.2,37.9,38.5,35.3,41.8,39.6,51.5,100.0,70.7,38.7,40.6,39.7,37.1,32.4,63.4,85.8,40.6,38.0,40.8,38.9,43.7,68.7,88.7,31.4,35.4,37.5,44.0,34.5,40.3,56.6,94.5,35.4,36.9,34.8,35.7,32.0,36.1,54.4,89.2,34.5,38.2,39.3,41.1,36.8,58.3,94.0,39.1,20.8,12.9,3.6,4.1,16.7,0.8,1.0,0.2,0.0,0.0,0.5]},"meta":{"date":"2026-10-11T16:44:05Z","git_sha":"59a30b1","loadgen":"do-blr1-loadgen-4vcpu-8gb","k6_version":"k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)","stack":"node-http"},"bench":{"language":"JavaScript","runtime":"bun","framework":"node:http (no framework)","db":"postgres","db_driver":"Bun.sql (Bun 1.4.2 native client)","db_pool":"Bun.sql pool max 10","workers":1,"change":"Postgres client pg 8.23.1 -> Bun.sql (native); parent node-http v02"},"env":{"app":"node-http","kernel":"6.8.0-142-generic","os":"Ubuntu 24.04.5 LTS","nproc":"1","mem_total_mb":"961","node":"v24.21.0","bun":"1.4.2","python":"3.12.3","go":"","postgres":"16.15","proxy":"none","swap_mb":"0","shared_buffers":"128MB","max_connections":"100","mem_avail_mb_idle":"630","cpu_probe_before_ms":"108.2","cpu_probe_after_ms":"91.5"},"criteria":{"p50":500.0,"p95":800.0,"p99":1000.0,"error_pct":1.0}}],"criteria":{"p50":500.0,"p95":800.0,"p99":1000.0,"error_pct":1.0},"best":null}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function(){
+  const D = JSON.parse(document.getElementById('report-data').textContent);
+  const L = D.levels, C = D.criteria;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  let charts = [], current = D.best || L[0].vus;
+  try { const saved = localStorage.getItem('report-vus'); if (saved && L.some(l => l.vus == saved)) current = +saved; } catch (e) {}
+
+  const rampBand = {id:'rampBand', beforeDatasetsDraw(chart, args, opts){
+    if (opts.until == null) return; const {ctx, chartArea:a, scales:{x}} = chart;
+    const x1 = Math.min(x.getPixelForValue(opts.until), a.right);
+    ctx.save(); ctx.fillStyle = css('--band'); ctx.fillRect(a.left, a.top, x1 - a.left, a.bottom - a.top); ctx.restore();
+  }};
+
+  function base(){
+    Chart.defaults.font.family = css('--f-mono').split(',')[0].replace(/"/g,'') || 'monospace';
+    Chart.defaults.font.size = 11;
+    Chart.defaults.color = css('--muted');
+    Chart.defaults.borderColor = css('--line');
+    Chart.defaults.animation = matchMedia('(prefers-reduced-motion: reduce)').matches ? false : {duration: 250};
+  }
+  const line = (label, data, color, extra) => Object.assign({label, data, borderColor: color, backgroundColor: color,
+    borderWidth: 1.8, pointRadius: 0, tension: .25, spanGaps: true}, extra || {});
+  const xy = (t, v) => t.map((x, i) => ({x, y: v[i]}));
+  const opts = (extra) => Object.assign({responsive:true, maintainAspectRatio:false, interaction:{mode:'index', intersect:false},
+    plugins:{legend:{position:'bottom', labels:{boxWidth:10, boxHeight:10, usePointStyle:true}}}}, extra || {});
+
+  function across(){
+    const vus = L.map(l => l.vus);
+    const limit = (v, label) => line(label, vus.map(() => v), css('--fail'), {borderDash:[5,4], borderWidth:1.2, pointRadius:0});
+    charts.push(new Chart(document.getElementById('c-lat'), {type:'line', data:{labels: vus.map(v => v + ' VUs'), datasets:[
+      line('p50', L.map(l => l.lat.med), css('--s-srv'), {pointRadius:4}),
+      line('p95', L.map(l => l.lat.p95), css('--s-client'), {pointRadius:4}),
+      line('p99', L.map(l => l.lat.p99), css('--s-p99'), {pointRadius:4}),
+      limit(C.p95, 'p95 limit'), limit(C.p99, 'p99 limit')]},
+      options: opts({scales:{y:{beginAtZero:true, title:{display:true, text:'ms'}}}})}));
+    charts.push(new Chart(document.getElementById('c-split'), {type:'bar', data:{labels: vus.map(v => v + ' VUs'), datasets:[
+      {label:'conn (get a DB connection)', data: L.map(l => l.srv.conn.med), backgroundColor: css('--s-conn'), stack:'s'},
+      {label:'db (queries)', data: L.map(l => l.srv.db.med), backgroundColor: css('--s-db'), stack:'s'},
+      {label:'app (Node work)', data: L.map(l => l.srv.app.med), backgroundColor: css('--s-app'), stack:'s'}]},
+      options: opts({scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true, title:{display:true, text:'ms'}}}})}));
+  }
+
+  let perLevel = [];
+  function level(vus){
+    perLevel.forEach(c => c.destroy()); perLevel = [];
+    const l = L.find(x => x.vus == vus); if (!l) return;
+    const k = l.k6, s = l.server, ramp = {rampBand:{until: l.ramp_s}};
+    const xAxis = {type:'linear', min:0, max: l.ramp_s + l.hold_s + 5, title:{display:true, text:'seconds since k6 start'}, ticks:{stepSize:20}};
+    if (k) {
+      perLevel.push(new Chart(document.getElementById('c-load'), {type:'line', plugins:[rampBand], data:{datasets:[
+        line('active users', xy(k.t, k.vus), css('--s-cpu'), {yAxisID:'y1'}),
+        line('req/s', xy(k.t, k.rps), css('--s-client')),
+        line('failed req/s', xy(k.t, k.failed_rps), css('--fail'))]},
+        options: opts({plugins:{...opts().plugins, ...ramp}, scales:{x:xAxis, y:{beginAtZero:true, title:{display:true, text:'req/s'}},
+          y1:{position:'right', beginAtZero:true, grid:{drawOnChartArea:false}, title:{display:true, text:'users'}}}})}));
+      perLevel.push(new Chart(document.getElementById('c-time'), {type:'line', plugins:[rampBand], data:{datasets:[
+        line('client p95', xy(k.t, k.p95), css('--s-client')),
+        line('client p99', xy(k.t, k.p99), css('--s-p99'), {borderDash:[3,3]}),
+        line('server total p95', xy(k.t, k.srv_p95), css('--s-srv')),
+        line('conn p95', xy(k.t, k.conn_p95), css('--s-conn'))]},
+        options: opts({plugins:{...opts().plugins, ...ramp}, scales:{x:xAxis, y:{beginAtZero:true, title:{display:true, text:'ms'}}}})}));
+    }
+    perLevel.push(new Chart(document.getElementById('c-cpu'), {type:'line', plugins:[rampBand], data:{datasets:[
+      line('CPU total', xy(s.t, s.cpu), css('--s-cpu')),
+      line('Node', xy(s.t, s.app_cpu), css('--s-node')),
+      line('Postgres', xy(s.t, s.pg_cpu), css('--s-pg')),
+      line('memory used MB', xy(s.t, s.mem_used), css('--s-mem'), {yAxisID:'y1', borderDash:[4,3]})]},
+      options: opts({plugins:{...opts().plugins, ...ramp}, scales:{x:xAxis, y:{min:0, max:100, title:{display:true, text:'CPU %'}},
+        y1:{position:'right', min:0, max:1000, grid:{drawOnChartArea:false}, title:{display:true, text:'MB'}}}})}));
+    const NAMES = {'GET /posts':'feed', 'GET /posts/:id':'view post', 'GET /users/:id/posts':'user posts',
+      'GET /me/posts':'my posts', 'POST /posts':'create post', 'POST /posts/:id/like':'like',
+      'DELETE /posts/:id/like':'unlike', 'POST /posts/:id/comments':'comment'};
+    const eps = Object.keys(l.endpoints).sort((a, b) => (NAMES[a] || a).localeCompare(NAMES[b] || b));
+    perLevel.push(new Chart(document.getElementById('c-ep'), {type:'bar', data:{labels: eps.map(e => NAMES[e] || e), datasets:[
+      {label:'client p95', data: eps.map(e => l.endpoints[e][0]), backgroundColor: css('--s-client')},
+      {label:'server total p95', data: eps.map(e => l.endpoints[e][1]), backgroundColor: css('--s-srv')}]},
+      options: opts({indexAxis:'y', scales:{x:{beginAtZero:true, title:{display:true, text:'ms'}}},
+        plugins:{...opts().plugins, tooltip:{callbacks:{title: items => eps[items[0].dataIndex]}}}})}));
+    document.querySelectorAll('.picker button').forEach(b => b.setAttribute('aria-selected', b.dataset.vus == vus ? 'true' : 'false'));
+  }
+
+  function render(){
+    if (!window.Chart) return;
+    charts.forEach(c => c.destroy()); charts = [];
+    base(); across(); level(current);
+  }
+  document.querySelectorAll('.picker button').forEach(b => b.addEventListener('click', () => {
+    current = +b.dataset.vus; try { localStorage.setItem('report-vus', current); } catch (e) {}
+    level(current);
+  }));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+  new MutationObserver(render).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "tag": "node-http-v03-bun-sql",
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  },
+  "capacity_vus": 0,
+  "first_fail_vus": 4500,
+  "levels_tested": [
+    {
+      "vus": 4500,
+      "pass": false,
+      "fail_reasons": [
+        "p95 1088>=800ms",
+        "p99 1547>=1000ms"
+      ]
+    }
+  ],
+  "at_capacity": null
+}
