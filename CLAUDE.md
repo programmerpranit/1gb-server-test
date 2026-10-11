@@ -64,8 +64,10 @@ loadtest/stress.js            k6 stress test (all stacks)
 apps/<stack>/                 one implementation per stack, e.g. apps/node-express/   (not created yet)
   build.sh                    optional; runs on the server as user `bench` (npm ci, go build, cargo build ...)
   bench.json                  required; stack metadata for results.csv: language, runtime, framework, db, db_driver,
-                              db_pool, workers, change (update it in the same commit as each config change)
+                              db_pool, workers, proxy, change (update it in the same commit as each config change)
   start.sh                    required; must `exec` the server process; reads $PORT and $DATABASE_URL
+  nginx.conf                  optional; if present, nginx (full nginx.conf) serves :3000 and the app gets PORT=3001
+                              (install_app.sh); server_metrics.csv then has proxy_cpu_pct / proxy_pss_mb
 results/CONFIG_TEMPLATE.md    template for results/<tag>/config.md
 results/results.csv           every run, one row per (tag, VUs), all data points (auto-updated)
 results/<tag>/                one directory per configuration

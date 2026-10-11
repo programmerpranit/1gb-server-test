@@ -15,7 +15,9 @@ export DEBIAN_FRONTEND=noninteractive
 echo ">> base packages"
 apt-get update -y
 apt-get upgrade -y
-apt-get install -y ca-certificates curl gnupg rsync ufw postgresql postgresql-contrib build-essential jq
+apt-get install -y ca-certificates curl gnupg rsync ufw postgresql postgresql-contrib build-essential jq nginx
+# nginx only runs for apps that ship an nginx.conf (install_app.sh enables it then).
+systemctl disable --now nginx >/dev/null 2>&1 || true
 
 echo ">> Node.js $NODE_MAJOR (NodeSource)"
 if ! command -v node >/dev/null || [[ "$(node -v | cut -d. -f1)" != "v$NODE_MAJOR" ]]; then

@@ -48,7 +48,7 @@ CSV_COLUMNS = [
     "pass", "fail_reasons", "crit_p50_ms", "crit_p95_ms", "crit_p99_ms", "crit_error_pct",
     # stack
     "stack", "language", "runtime", "runtime_version", "framework", "db", "db_version", "db_driver", "db_pool",
-    "app_workers", "change",
+    "app_workers", "proxy", "change",
     # server
     "server_plan", "server_vcpu", "server_ram_mb", "os", "kernel", "swap_mb", "pg_shared_buffers",
     "pg_max_connections", "mem_avail_mb_idle",
@@ -73,7 +73,7 @@ CSV_COLUMNS = [
     # server resources
     "app_pss_mb_peak", "pg_pss_mb_peak", "mem_used_mb_peak", "mem_avail_mb_min", "swap_used_mb_peak",
     "cpu_total_pct_avg_steady", "cpu_steal_pct_avg_steady", "app_cpu_pct_avg_steady", "pg_cpu_pct_avg_steady",
-    "app_conns_peak", "load1_peak",
+    "app_conns_peak", "load1_peak", "proxy_cpu_pct_avg_steady", "proxy_pss_mb_peak",
     # host speed (fixed workload timed before/after the run; higher = slower vCPU) and CPU cost per request
     "cpu_probe_before_ms", "cpu_probe_after_ms", "cpu_ms_per_req_steady",
 ]
@@ -127,6 +127,7 @@ def server_stats(path, steady_from, steady_to):
         return {}
     steady = [r for r in rows if steady_from <= r["ts"] <= steady_to] or rows
     avg = lambda key, rs: sum(r[key] for r in rs) / len(rs)
+    avg_opt = lambda key, rs: sum(r.get(key, 0.0) for r in rs) / len(rs)
     return {
         "app_pss_mb_peak": max(r["app_pss_mb"] for r in rows),
         "pg_pss_mb_peak": max(r["pg_pss_mb"] for r in rows),
@@ -139,6 +140,9 @@ def server_stats(path, steady_from, steady_to):
         "pg_cpu_pct_avg_steady": avg("pg_cpu_pct", steady),
         "app_conns_peak": max(r["app_conns"] for r in rows),
         "load1_peak": max(r["load1"] for r in rows),
+        # reverse proxy columns exist since node-express-v07 (0 when no proxy runs)
+        "proxy_cpu_pct_avg_steady": avg_opt("proxy_cpu_pct", steady),
+        "proxy_pss_mb_peak": max(r.get("proxy_pss_mb", 0.0) for r in rows),
     }
 
 
@@ -318,7 +322,8 @@ def summarize(run_dir, crit):
         "stack": s["stack"], "language": bench.get("language"), "runtime": runtime,
         "runtime_version": env.get(runtime) or bench.get("runtime_version"), "framework": bench.get("framework"),
         "db": bench.get("db", "postgres"), "db_version": env.get("postgres"), "db_driver": bench.get("db_driver"),
-        "db_pool": bench.get("db_pool"), "app_workers": bench.get("workers"), "change": bench.get("change"),
+        "db_pool": bench.get("db_pool"), "app_workers": bench.get("workers"), "proxy": bench.get("proxy", "none"),
+        "change": bench.get("change"),
         "server_plan": env.get("plan", "DO Basic $6 (1 vCPU / 1 GB / 25 GB)"), "server_vcpu": env.get("nproc"),
         "server_ram_mb": env.get("mem_total_mb"), "os": env.get("os"), "kernel": env.get("kernel"),
         "swap_mb": env.get("swap_mb"), "pg_shared_buffers": env.get("shared_buffers"),
