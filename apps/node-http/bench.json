@@ -1,10 +1,10 @@
 {
   "language": "JavaScript",
   "runtime": "bun",
-  "framework": "node:http (no framework)",
+  "framework": "Bun.serve (no framework)",
   "db": "postgres",
   "db_driver": "Bun.sql (Bun 1.4.2 native client)",
   "db_pool": "Bun.sql pool max 10",
   "workers": 1,
-  "change": "Postgres client pg 8.23.1 -> Bun.sql (native); parent node-http v02"
+  "change": "HTTP server node:http -> Bun.serve; parent node-http v03 (Bun.sql)"
 }

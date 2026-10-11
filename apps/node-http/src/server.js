@@ -1,16 +1,16 @@
 'use strict';
 
-// Implementation of the protocol v2 API (see CLAUDE.md "API contract") on plain node:http — no framework.
+// Implementation of the protocol v2 API (see CLAUDE.md "API contract") without a framework.
 // Same data access and caching as node-express v06: one process, a connection pool of 10, every request reserves one
 // connection for all its queries; writes that touch two tables are ONE statement with data-modifying CTEs; every
 // query is a prepared statement; GET /posts (global feed) is cached in process for 1 s (see "Global feed cache").
 // Since node-http v03 the Postgres client is Bun's native one (Bun.sql: tagged-template queries, prepared and cached
-// per connection automatically) instead of node-postgres, so this file needs Bun. What Express did is done here by hand: a small router (method + path
-// segments), JSON body parsing (100 kB limit, like express.json), JSON responses with Content-Length. Not copied
-// from Express: ETag and X-Powered-By headers (not part of the contract).
+// per connection automatically) instead of node-postgres; since v04 the HTTP server is Bun's native one (Bun.serve:
+// fetch(Request) -> Response) instead of node:http. This file needs Bun.
+// What Express did is done here by hand: a small router (method + path segments), JSON body parsing (100 kB limit,
+// like express.json), JSON responses. Not copied from Express: ETag and X-Powered-By headers (not in the contract).
 // Every response carries a Server-Timing header: conn (pool wait), db (queries), app (the rest), total.
 
-const http = require('node:http');
 const { SQL } = require('bun');
 
 const PORT = Number(process.env.PORT || 3000);
@@ -84,8 +84,8 @@ function validText(body) {
 
 // Acting user from X-User-Id (simulated auth).
 function optionalUser(req) {
-  const header = req.headers['x-user-id'];
-  return header === undefined ? null : parseId(header);
+  const header = req.headers.get('x-user-id');
+  return header === null ? null : parseId(header);
 }
 
 function requireUser(req) {
@@ -95,50 +95,35 @@ function requireUser(req) {
 }
 
 // Request body as JSON (like express.json: only for JSON content types, 100 kB limit; otherwise an empty object).
-function readJson(req) {
-  const type = req.headers['content-type'] || '';
-  if (!type.includes('json')) {
-    req.resume();
-    return Promise.resolve({});
+async function readJson(req) {
+  const type = req.headers.get('content-type') || '';
+  if (!type.includes('json')) return {};
+  const text = await req.text();
+  if (Buffer.byteLength(text) > MAX_BODY) throw new HttpError(413, 'request entity too large');
+  if (text.length === 0) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new HttpError(400, 'invalid JSON');
   }
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    let size = 0;
-    req.on('data', (chunk) => {
-      size += chunk.length;
-      if (size > MAX_BODY) {
-        reject(new HttpError(413, 'request entity too large'));
-        req.destroy();
-        return;
-      }
-      chunks.push(chunk);
-    });
-    req.on('end', () => {
-      if (size === 0) return resolve({});
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-      } catch {
-        reject(new HttpError(400, 'invalid JSON'));
-      }
-    });
-    req.on('error', reject);
-  });
 }
 
 // --- Server timing + responses -----------------------------------------------------------------------------------
 const nowMs = () => Number(process.hrtime.bigint()) / 1e6;
 
-// Every response goes through here: Server-Timing is computed just before the headers go out (also on errors).
-function send(res, timing, status, json) {
+// Every response is built here: Server-Timing is computed when the Response is created (also on errors); Bun.serve
+// adds Content-Length.
+function respond(timing, status, json) {
   const total = nowMs() - timing.start;
   const app = Math.max(0, total - timing.conn - timing.db);
-  res.writeHead(status, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Content-Length': Buffer.byteLength(json),
-    'Server-Timing': `conn;dur=${timing.conn.toFixed(1)}, db;dur=${timing.db.toFixed(1)}, ` +
-      `app;dur=${app.toFixed(1)}, total;dur=${total.toFixed(1)}`,
+  return new Response(json, {
+    status,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Server-Timing': `conn;dur=${timing.conn.toFixed(1)}, db;dur=${timing.db.toFixed(1)}, ` +
+        `app;dur=${app.toFixed(1)}, total;dur=${total.toFixed(1)}`,
+    },
   });
-  res.end(json);
 }
 
 // --- Database access ---------------------------------------------------------------------------------------------
@@ -360,14 +345,17 @@ function errorResponse(err) {
   return ok({ error: 'internal error' }, 500);
 }
 
-async function handle(req, res) {
+async function handle(req) {
   const timing = { start: nowMs(), conn: 0, db: 0 };
   let status;
   let json;
   try {
-    const q = req.url.indexOf('?');
-    const path = q === -1 ? req.url : req.url.slice(0, q);
-    const query = new URLSearchParams(q === -1 ? '' : req.url.slice(q + 1));
+    // req.url is absolute (http://host:port/path?query): the path starts at the first '/' after the scheme.
+    const url = req.url;
+    const p = url.indexOf('/', url.indexOf('//') + 2);
+    const q = url.indexOf('?', p);
+    const path = q === -1 ? url.slice(p) : url.slice(p, q);
+    const query = new URLSearchParams(q === -1 ? '' : url.slice(q + 1));
     const seg = path.split('/').filter(Boolean).map(decodeURIComponent);
     const match = route(req.method, seg);
     if (match === null) throw new HttpError(404, 'not found');
@@ -376,14 +364,14 @@ async function handle(req, res) {
   } catch (err) {
     [status, json] = errorResponse(err);
   }
-  send(res, timing, status, json);
+  return respond(timing, status, json);
 }
 
-const server = http.createServer((req, res) => { handle(req, res); });
-server.listen(PORT, () => console.log(`node-http listening on :${PORT}`));
+const server = Bun.serve({ port: PORT, fetch: handle });
+console.log(`node-http (Bun.serve) listening on :${server.port}`);
 
 function shutdown() {
-  server.close(() => sql.close().then(() => process.exit(0)));
+  server.stop().then(() => sql.close()).then(() => process.exit(0));
   setTimeout(() => process.exit(1), 5000).unref();
 }
 process.on('SIGTERM', shutdown);
