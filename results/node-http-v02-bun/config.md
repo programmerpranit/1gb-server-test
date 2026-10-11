@@ -1,10 +1,11 @@
 # node-http-v02-bun
 
 ## Summary
-**Capacity: 4000 VUs at 2082 req/s (124,896 req/min)**, steady p50 14 ms / p95 436 ms / p99 823 ms, 0 % errors.
-The first failing level is **4500 VUs**: 2097 req/s, p95 902 ms / p99 1045 ms (limits 800 / 1000), still 0 %
-errors. **+25 % VUs and +24 % req/s over node-http v01 on Node** (3200 VUs / 1678 req/s), with the same code and
-driver: only the runtime changed. Best result so far.
+**Capacity: 4200 VUs at 2078 req/s (124,668 req/min)**, steady p50 47 ms / p95 752 ms / p99 851 ms, 0 % errors
+(added after the first release; near-marginal: p95 6 % under its limit, fast host). 4000 VUs passed comfortably at
+2082 req/s (p95 436 / p99 823 ms). The first failing level is **4500 VUs**: 2097 req/s, p95 902 ms / p99 1045 ms
+(limits 800 / 1000), still 0 % errors. **+31 % VUs and +24 % req/s over node-http v01 on Node** (3200 VUs /
+1678 req/s), with the same code and driver: only the runtime changed. Best result so far.
 
 - **Bun does less work per request.** At 3500 VUs (Node's first fail, Bun's easy pass) the app : Postgres CPU ratio
   is 1.28 vs. 1.48 on Node (Bun 45 % / PG 35 % at 1855 req/s vs. Node 52 % / PG 35 % at 1779 req/s), i.e. ≈ 13 %
@@ -49,15 +50,16 @@ The parity check (39 requests on a fresh DB) gave responses identical to v01 on 
   traffic to the target's private IP 10.122.0.2
 
 ## Results
-Levels chosen by the user: 3500 (Node's first fail), then 4000, then 4500.
+Levels chosen by the user: 3500 (Node's first fail), then 4000, then 4500, then 4200 (added after the first release).
 
 | VUs | Result | Steady req/s | p50 ms | p95 ms | p99 ms | Error % | Server p50 / p95 | conn p50 / p95 | db p50 / p95 | CPU % (app / PG) | CPU ms/req | Probe before / after ms | Used MB | Feed hit rate |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 3500 | PASS | 1854.7 | 5.8 | 166.1 | 424.6 | 0.00 | 0.8 / 149.4 | 0 / 101.7 | 0.6 / 12.3 | 89.0 (45.2 / 35.4) | 0.48 | 109 / 80 | 498 | 99.7 % |
-| **4000** | **PASS** | **2081.6** | **14.2** | **436.2** | **823.3** | 0.00 | 1.9 / 420.7 | 0 / 367.7 | 0.8 / 12.8 | 93.6 (47.0 / 37.6) | 0.45 | 79 / 105 | 489 | 99.7 % |
+| 4000 | PASS | 2081.6 | 14.2 | 436.2 | 823.3 | 0.00 | 1.9 / 420.7 | 0 / 367.7 | 0.8 / 12.8 | 93.6 (47.0 / 37.6) | 0.45 | 79 / 105 | 489 | 99.7 % |
+| **4200** | **PASS** | **2077.8** | **46.7** | **752.4** | **850.6** | 0.00 | 21.9 / 726.4 | 0 / 687.0 | 1.4 / 14.3 | 97.0 (50.0 / 38.3) | 0.47 | 78 / 91 | 498 | 99.7 % |
 | 4500 | FAIL (p95, p99) | 2097.4 | 247.4 | 901.9 | 1044.6 | 0.00 | 217.3 / 883.6 | 59.7 / 861.2 | 3.8 / 15.4 | 100.0 (51.4 / 39.7) | 0.48 | 83 / 127 | 499 | 99.7 % |
 
-**Capacity: 4000 VUs at 2081.6 req/s.** First fail: 4500 VUs. Node v01 at 3500 VUs: FAIL, 1779 req/s, p50 30 /
+**Capacity: 4200 VUs at 2077.8 req/s** (near-marginal on p95). First fail: 4500 VUs. Node v01 at 3500 VUs: FAIL, 1779 req/s, p50 30 /
 p95 471 / p99 1175 ms, CPU 95 % (Node 52 / PG 35), 0.54 ms CPU/req.
 
 ## Observations

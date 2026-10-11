@@ -39,7 +39,7 @@ _Last updated: 2026-10-11, session 2 (node-express v06, node-http v01 and v02 re
 | node-express-v05-prepared | prepared statements (parent v04) | 1400 | 645 | 1500 | PG share ≈ 43.5 %; likely 5–10 % gain, within noise |
 | node-express-v06-feed-cache-1s | 1 s in-process cache of `GET /posts`, all pages (parent v05) | 3000 | 1541 | 3200 | 2.4× v05; 99.6 % hits; Node ≈ 60 % / PG ≈ 30 %; trade-off: feed ≤ 1 s stale |
 | node-http-v01-express-v06-port | v06 on plain `node:http`, no Express (new stack) | 3200 | 1678 | 3500 | +7 % VUs; Node : PG CPU 1.55 vs. 1.93; part of req/s gain is host speed |
-| node-http-v02-bun | runtime Node → Bun 1.4.2, same code | 4000 | 2082 | 4500 | +25 % VUs; ceiling ≈ 2100 req/s (CPU 100 %); app : PG 1.28 vs. 1.48 |
+| node-http-v02-bun | runtime Node → Bun 1.4.2, same code | 4200 | 2078 | 4500 | +25 % VUs; ceiling ≈ 2100 req/s (CPU 100 %); app : PG 1.28 vs. 1.48 |
 
 All eight are released on GitHub (build, results, `report-<tag>.html`). Best configuration: **node-http v02 (Bun)**
 (cached; on Node: node-http v01; on Express: node-express v06; best uncached: node-express v05).

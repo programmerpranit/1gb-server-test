@@ -347,7 +347,7 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
 - [x] **`node-http-v01-express-v06-port`** (parent node-express v06) — Express removed, otherwise a 1:1 port (same
       pool, prepared statements, CTE writes, 1 s feed cache; no ETag). Parity check: 39 requests identical. Capacity
       3200 VUs / 1678 req/s, first fail 3500 (p99 1175 ms); Node : PG CPU 1.55 vs. 1.93 for Express.
-- [x] **`node-http-v02-bun`** (parent v01) — runtime Node 24 → Bun 1.4.2, same code. Capacity 4000 VUs / 2082 req/s,
+- [x] **`node-http-v02-bun`** (parent v01) — runtime Node 24 → Bun 1.4.2, same code. Capacity 4200 VUs / 2078 req/s,
       first fail 4500 (CPU 100 %, ceiling ≈ 2100 req/s); app : PG CPU 1.28 vs. 1.48 on Node.
 - [x] `pool-20` on Bun (parent v02), **not released**: 4500 VUs FAIL, 2104 req/s (= pool 10), query time 2×, p99
       1404 vs. 1045 ms. The CPU is the ceiling, not the pool; keep pool 10.
