@@ -347,7 +347,10 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
 - [x] **`node-http-v01-express-v06-port`** (parent node-express v06) — Express removed, otherwise a 1:1 port (same
       pool, prepared statements, CTE writes, 1 s feed cache; no ETag). Parity check: 39 requests identical. Capacity
       3200 VUs / 1678 req/s, first fail 3500 (p99 1175 ms); Node : PG CPU 1.55 vs. 1.93 for Express.
-- [ ] Next: bigger load generator before > 3500 VUs; then Bun / uWebSockets.js; then Go / Rust.
+- [x] **`node-http-v02-bun`** (parent v01) — runtime Node 24 → Bun 1.4.2, same code. Capacity 4000 VUs / 2082 req/s,
+      first fail 4500 (CPU 100 %, ceiling ≈ 2100 req/s); app : PG CPU 1.28 vs. 1.48 on Node.
+- [ ] **`node-http-v03-pool-20`** (parent v02) — pool max 10 → 20 on Bun, at 4500 VUs (user's request).
+- [ ] Then: `Bun.sql` / `Bun.serve`; bigger load generator before ≫ 4500 VUs; Go / Rust.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
 Candidates, roughly in order: pool size (5 / 20 / 50); `pg-native` or prepared statements; Postgres tuning

@@ -24,6 +24,7 @@ the highest passing VU level tested; this table is updated automatically. Every 
 | node-express-v05-prepared | node-express | prepared statements (pg named queries); parent v04 | 1400 | 1500 | 645.1 | 38707 | 319.7 | 675.8 | 801.5 | 0 | 493 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v05-prepared) |
 | node-express-v06-feed-cache-1s | node-express | in-process cache of GET /posts (all pages, key limit+before, TTL 1 s, single-flight); parent v05 | 3000 | 3200 | 1541.0 | 92462 | 29.4 | 573.0 | 854.6 | 0 | 541 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v06-feed-cache-1s) |
 | node-http-v01-express-v06-port | node-http | port of node-express v06 to plain node:http (no Express, no ETag); same pool, prepared statements, CTE writes, 1 s feed cache | 3200 | 3500 | 1677.6 | 100656 | 10.9 | 392.4 | 835.3 | 0 | 523 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v01-express-v06-port) |
+| node-http-v02-bun | node-http | runtime Node 24 -> Bun 1.4.2 (same node:http + pg code); parent node-http v01 | 4000 | 4500 | 2081.6 | 124896 | 14.2 | 436.2 | 823.3 | 0 | 489 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v02-bun) |
 <!-- CAPACITY:END -->
 
 ## Findings
@@ -60,6 +61,10 @@ One analysis summary per tag; the full report (summary, configuration, results, 
   pool, queries and 1 s feed cache. **Capacity 3200 VUs / 1678 req/s**; 3500 fails on p99 (1175 ms, 1779 req/s).
   +7 % VUs / +9 % req/s vs. Express v06; Node : Postgres CPU 1.55 vs. 1.93 (≈ 20 % less Node work per request), part
   of the req/s gain is a ≈ 12 % faster host. CPU-bound, 0 % errors. [Report](results/node-http-v01-express-v06-port/config.md)
+- **node-http-v02-bun** — node-http v01 on Bun 1.4.2 instead of Node (same code, same `pg` driver). **Capacity
+  4000 VUs / 2082 req/s** (+25 % VUs vs. Node); 4500 fails on p95/p99 at 2097 req/s with the CPU at 100 %: ceiling
+  ≈ 2100 req/s. App : Postgres CPU 1.28 vs. 1.48 on Node (≈ 13 % less app work per query); Bun PSS ≤ 113 MB.
+  0 % errors. [Report](results/node-http-v02-bun/config.md)
 
 _Protocol-v1 results (MacBook load source) were dropped on 2026-10-10; see git history up to commit `e10904b`._
 
@@ -67,10 +72,11 @@ _Protocol-v1 results (MacBook load source) were dropped on 2026-10-10; see git h
 
 Updated after every test. The plan with all candidates is in [CLAUDE.md](CLAUDE.md#plan).
 
-**Where Node stands:** best configuration `node-http-v01-express-v06-port` (plain `node:http`, pool 10, prepared
-statements, single-statement writes, 1 s in-process cache of the global feed): **3200 VUs / 1678 req/s**, first fail
-3500 VUs. Best on Express: `node-express-v06-feed-cache-1s`, 3000 VUs / 1541 req/s. Best without a cache:
-`node-express-v05-prepared`, 1400 VUs / 645 req/s. CPU-bound: at the edge Node ≈ 52 % / Postgres ≈ 35 % of the vCPU.
+**Where Node / Bun stands:** best configuration `node-http-v02-bun` (plain `node:http` code on Bun 1.4.2, pool 10,
+prepared statements, single-statement writes, 1 s in-process cache of the global feed): **4000 VUs / 2082 req/s**,
+first fail 4500 VUs; ceiling ≈ 2100 req/s. On Node: `node-http-v01-express-v06-port`, 3200 VUs / 1678 req/s. On
+Express: `node-express-v06-feed-cache-1s`, 3000 VUs / 1541 req/s. Without a cache: `node-express-v05-prepared`,
+1400 VUs / 645 req/s. CPU-bound: at the edge Bun ≈ 51 % / Postgres ≈ 40 % of the vCPU.
 
 **Tried and not released** (node-express, parent v06): feed-cache TTL 5 s (no gain: hits were already 99.6 %);
 nginx as plain reverse proxy (−28 % req/s, nginx 15 % CPU); nginx `proxy_cache` for the feed instead of the app
@@ -81,13 +87,13 @@ as much as it saves. Script support for an optional `apps/<stack>/nginx.conf` st
 the Node : Postgres CPU split or at the same probe values. The 4 vCPU load generator averages ≈ 48 % CPU at
 3200–3500 VUs but spikes to ≈ 90 % every ≈ 6 s: levels above ≈ 3500 VUs need a bigger one.
 
-1. **Bigger load generator** (8 vCPU, new `LOADGEN_LABEL`) before testing past ≈ 3500 VUs; rerun the current best
-   at its edge on it for comparability.
-2. **Bun** (same `node:http` code, or `Bun.serve`): a faster HTTP server and runtime; Node is still ≈ 60 % of the
-   busy CPU. Likely the biggest remaining Node-side lever.
-3. **uWebSockets.js** as the HTTP layer on Node: similar idea, different trade-offs.
-4. **Other stacks** with the same 1 s feed cache: Go (`net/http` + pgx), Rust (axum + tokio-postgres). They also
-   spend less CPU per query in the driver, which is where the Postgres side can still shrink.
+1. **`node-http-v03-pool-20`** (user's request): `pg.Pool` max 10 → 20 on Bun, at 4500 VUs. On Node (node-express
+   v03) pool 20 was worse (query contention on 1 vCPU); worth checking with Bun's lower app overhead.
+2. **Bun-native APIs**: `Bun.sql` (native Postgres client) instead of `pg`, and/or `Bun.serve` instead of `node:http`.
+   The driver's share of the app's CPU was ≈ 19 % of Node's JS time in the v05 profile.
+3. **Bigger load generator** (8 vCPU, new `LOADGEN_LABEL`) before testing well past ≈ 4500 VUs; rerun the current best
+   at its edge on it for comparability. k6 already spikes to ≈ 100 % every ≈ 6 s.
+4. **Other stacks** with the same 1 s feed cache: Go (`net/http` + pgx), Rust (axum + tokio-postgres).
 5. Small items (each likely < 5 %, low priority for max VUs): `enable_memoize = off`, Unix socket to Postgres.
 
 Each step is one tag that changes one thing from the best configuration so far. VU levels are chosen per run.
@@ -447,6 +453,60 @@ pool (v02). Labelled trade-off: the global feed can be up to 1 s stale.
 1000 VUs (CPU per request) and at the edge (3000 / 3200 VUs). Expect a small difference: hits are already 99.6 %, so
 5 s only removes ≈ 2 refresh queries per second and makes the refresh stalls 5× rarer.
 
+### node-http-v02-bun
+
+[Full report](results/node-http-v02-bun/config.md) · [Release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v02-bun)
+
+#### What changed
+
+Parent: `node-http-v01-express-v06-port`. One change: **the runtime, Node v24.21.0 → Bun 1.4.2.** `start.sh` runs
+`bun src/server.js` instead of `node src/server.js`. Same source (`node:http` server, `pg` 8.23.1 pool max 10,
+prepared statements, CTE writes, 1 s in-process feed cache), same `node_modules` (`npm ci`). Bun is installed by
+`scripts/server/setup.sh` as a pinned release binary (`/usr/local/bin/bun`, bun-linux-x64; the droplet has AVX2).
+The parity check (39 requests on a fresh DB) gave responses identical to v01 on Node; headers are the same
+(`Connection: keep-alive`, `Keep-Alive: timeout=5`). App code from commit `f64fc95`.
+
+#### Summary
+
+**Capacity: 4000 VUs at 2082 req/s (124,896 req/min)**, steady p50 14 ms / p95 436 ms / p99 823 ms, 0 % errors.
+The first failing level is **4500 VUs**: 2097 req/s, p95 902 ms / p99 1045 ms (limits 800 / 1000), still 0 %
+errors. **+25 % VUs and +24 % req/s over node-http v01 on Node** (3200 VUs / 1678 req/s), with the same code and
+driver: only the runtime changed. Best result so far.
+
+- **Bun does less work per request.** At 3500 VUs (Node's first fail, Bun's easy pass) the app : Postgres CPU ratio
+  is 1.28 vs. 1.48 on Node (Bun 45 % / PG 35 % at 1855 req/s vs. Node 52 % / PG 35 % at 1779 req/s), i.e. ≈ 13 %
+  less app CPU per query, measured independently of host speed. CPU per request 0.48 vs. 0.54 ms although the host
+  was slower for Bun's run (probe 109 vs. 83 ms before).
+- **The ceiling is ≈ 2100 req/s, and it is the CPU.** 4000 → 4500 VUs adds only 15 req/s (2082 → 2097). At 4500 VUs
+  the vCPU is at 100 % for the whole hold phase (Bun 51 % / Postgres 40 %), steal 0.4 %. The latency is inside the
+  server: server time p95 884 ms, almost all pool wait (`conn` p95 861 ms); query time p95 15 ms.
+- **Postgres is now ≈ 44 % of the busy CPU.** Further savings on the app side shrink in value; the Postgres share
+  (the ≈ 53 % of requests that still run queries) is the next floor.
+- **Memory is lower than on Node.** Bun PSS ≤ 113 MB (Node ≤ 147 MB), peak 499 MB used, ≥ 462 MB available, no swap.
+- **The load generator is near its limit but did not decide the verdicts.** It averaged 46–53 % CPU and spiked to
+  ≈ 90–100 % every ≈ 6–7 s (k6 RSS up to 2.6 GB). Time outside the app stayed at p95 16–18 ms at every level, and the
+  4500 failure is server-side (100 % CPU, latency inside the handler).
+- **Next:** user's request — a larger `pg.Pool` on Bun at 4500 VUs (node-express v03 showed pool 20 was worse on
+  Node: more concurrent queries only add contention on 1 vCPU; Bun may behave differently). Then `Bun.serve` or Bun's
+  native Postgres client (`Bun.sql`), or other stacks (Go, Rust).
+
+#### Observations
+
+- At 3500 and 4000 VUs the CPU was not pinned (89 % and 94 % average with dips to ≈ 80 %): Bun kept up with the
+  offered load. At 4500 it was at 100 % throughout, and p50 jumped from 14 to 247 ms: the queue builds as soon as the
+  offered load (≈ 2300 req/s) passes the ≈ 2100 req/s ceiling.
+- The 4000-VU pass ran on a fast host (probe 79 ms before) and the host slowed during it (105 ms after); p99 823 ms
+  leaves 18 % headroom, so the pass is not marginal, but a slower host could move the edge by one step.
+- Time outside the handler (client − server) is small at every level (p50 5–30 ms, p95 16–18 ms): Bun's event loop
+  and the load generator add little.
+- `app_log_tail.txt` has no errors; feed-cache misses ≈ 25 per 10 s as on Node.
+
+#### Next idea
+
+`node-http-v03-pool-20` (parent v02): `pg.Pool` max 10 → 20, the only change, tested at 4500 VUs (user's request).
+On Node (node-express v03) pool 20 doubled query time and lowered capacity; check whether Bun's lower app overhead
+changes that. Further: Bun's native Postgres client (`Bun.sql`) or `Bun.serve`, then Go / Rust.
+
 ### node-http-v01-express-v06-port
 
 [Full report](results/node-http-v01-express-v06-port/config.md) · [Release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v01-express-v06-port)
@@ -564,6 +624,9 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 | node-express-v06-feed-cache-1s | node-express | 3200 | FAIL | 1604.2 | 96250 | 149284 | 42.4 | 388.4 | 725.1 | 1640.9 | 1775 | 19.2 | 709.8 | 481.8 | 0 | 161 | 131 | 548 | 0 | 98.7 | 0.3 | do-blr1-loadgen-4vcpu-8gb |
 | node-http-v01-express-v06-port | node-http | 3200 | PASS | 1677.6 | 100656 | 154434 | 10.9 | 196.9 | 392.4 | 835.3 | 990 | 1.6 | 361.6 | 262.6 | 0 | 144 | 133 | 523 | 0 | 92.4 | 0.6 | do-blr1-loadgen-4vcpu-8gb |
 | node-http-v01-express-v06-port | node-http | 3500 | FAIL | 1778.5 | 106711 | 165366 | 29.5 | 335.9 | 470.8 | 1175.4 | 1303 | 7 | 428.4 | 359.6 | 0 | 147 | 133 | 537 | 0 | 95.4 | 0.9 | do-blr1-loadgen-4vcpu-8gb |
+| node-http-v02-bun | node-http | 3500 | PASS | 1854.7 | 111279 | 168427 | 5.8 | 75.1 | 166.1 | 424.6 | 591 | 0.8 | 149.4 | 101.7 | 0 | 102 | 129 | 498 | 0 | 89.0 | 0.3 | do-blr1-loadgen-4vcpu-8gb |
+| node-http-v02-bun | node-http | 4000 | PASS | 2081.6 | 124896 | 191899 | 14.2 | 280.3 | 436.2 | 823.3 | 976 | 1.9 | 420.7 | 367.7 | 0 | 101 | 131 | 489 | 0 | 93.6 | 0.3 | do-blr1-loadgen-4vcpu-8gb |
+| node-http-v02-bun | node-http | 4500 | FAIL | 2097.4 | 125845 | 199838 | 247.4 | 744.3 | 901.9 | 1044.6 | 1547 | 217.3 | 883.6 | 861.2 | 0 | 113 | 136 | 499 | 0 | 100.0 | 0.4 | do-blr1-loadgen-4vcpu-8gb |
 <!-- RESULTS:END -->
 
 ## Reproducing

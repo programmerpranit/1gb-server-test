@@ -1,0 +1,18 @@
+Oct 11 16:18:48 1gb-test systemd[1]: Stopping bench-app.service - Benchmark app (node-http)...
+Oct 11 16:18:48 1gb-test systemd[1]: bench-app.service: Deactivated successfully.
+Oct 11 16:18:48 1gb-test systemd[1]: Stopped bench-app.service - Benchmark app (node-http).
+Oct 11 16:18:51 1gb-test systemd[1]: Started bench-app.service - Benchmark app (node-http).
+Oct 11 16:18:51 1gb-test start.sh[93265]: node-http listening on :3000
+Oct 11 16:19:11 1gb-test start.sh[93265]: feed cache: hit=517 miss=16 keys=2
+Oct 11 16:19:21 1gb-test start.sh[93265]: feed cache: hit=1984 miss=20 keys=2
+Oct 11 16:19:31 1gb-test start.sh[93265]: feed cache: hit=3560 miss=20 keys=2
+Oct 11 16:19:41 1gb-test start.sh[93265]: feed cache: hit=4935 miss=21 keys=2
+Oct 11 16:19:51 1gb-test start.sh[93265]: feed cache: hit=6338 miss=20 keys=2
+Oct 11 16:20:01 1gb-test start.sh[93265]: feed cache: hit=7567 miss=20 keys=2
+Oct 11 16:20:11 1gb-test start.sh[93265]: feed cache: hit=7581 miss=21 keys=2
+Oct 11 16:20:21 1gb-test start.sh[93265]: feed cache: hit=8862 miss=21 keys=2
+Oct 11 16:20:31 1gb-test start.sh[93265]: feed cache: hit=8681 miss=22 keys=3
+Oct 11 16:20:41 1gb-test start.sh[93265]: feed cache: hit=8651 miss=20 keys=2
+Oct 11 16:20:51 1gb-test start.sh[93265]: feed cache: hit=8817 miss=22 keys=3
+Oct 11 16:21:01 1gb-test start.sh[93265]: feed cache: hit=8638 miss=20 keys=2
+Oct 11 16:21:11 1gb-test start.sh[93265]: feed cache: hit=1800 miss=5 keys=0
