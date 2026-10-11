@@ -6,6 +6,6 @@
   "db_driver": "pg 8.23.1",
   "db_pool": "pg.Pool defaults (max 10)",
   "workers": 1,
-  "change": "nginx reverse proxy in front (plain proxy, no cache); parent v06",
-  "proxy": "nginx 1.24.0 (1 worker, keep-alive upstream, no cache)"
+  "change": "feed cache moved from Node to nginx proxy_cache (1 s, stale-while-revalidate); parent v06",
+  "proxy": "nginx 1.24.0 (1 worker, keep-alive upstream, proxy_cache GET /posts 1 s)"
 }
