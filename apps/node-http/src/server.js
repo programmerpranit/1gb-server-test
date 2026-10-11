@@ -1,31 +1,38 @@
 'use strict';
 
 // Implementation of the protocol v2 API (see CLAUDE.md "API contract") on plain node:http — no framework.
-// Same data access and caching as node-express v06: one process, a pg.Pool with default settings (max 10), every
-// request borrows one connection for all its queries; writes that touch two tables are ONE statement with
-// data-modifying CTEs; every query is a prepared statement (named query); GET /posts (global feed) is cached in
-// process for 1 s (see "Global feed cache"). What Express did is done here by hand: a small router (method + path
+// Same data access and caching as node-express v06: one process, a connection pool of 10, every request reserves one
+// connection for all its queries; writes that touch two tables are ONE statement with data-modifying CTEs; every
+// query is a prepared statement; GET /posts (global feed) is cached in process for 1 s (see "Global feed cache").
+// Since node-http v03 the Postgres client is Bun's native one (Bun.sql: tagged-template queries, prepared and cached
+// per connection automatically) instead of node-postgres, so this file needs Bun. What Express did is done here by hand: a small router (method + path
 // segments), JSON body parsing (100 kB limit, like express.json), JSON responses with Content-Length. Not copied
 // from Express: ETag and X-Powered-By headers (not part of the contract).
 // Every response carries a Server-Timing header: conn (pool wait), db (queries), app (the rest), total.
 
 const http = require('node:http');
-const { Pool, types } = require('pg');
-
-// bigint ids/counters come back as strings by default; all our values fit in a JS number.
-types.setTypeParser(20, (v) => parseInt(v, 10));
+const { SQL } = require('bun');
 
 const PORT = Number(process.env.PORT || 3000);
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-pool.on('error', (err) => console.error('pg pool error', err));
+const sql = new SQL({ url: process.env.DATABASE_URL, max: 10 });
+
+// Bun.sql returns bigint (int8) columns as strings; all our ids fit in a JS number (node-postgres did the same with a
+// type parser). These are the int8 columns any query returns.
+const INT8_COLUMNS = ['id', 'user_id', 'post_id'];
+function int8ToNumber(rows) {
+  for (const row of rows) {
+    for (const col of INT8_COLUMNS) {
+      if (typeof row[col] === 'string') row[col] = Number(row[col]);
+    }
+  }
+  return rows;
+}
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 const MAX_TEXT = 1000;
 const MAX_BODY = 100 * 1024;
 const MAX_ID = '9223372036854775807';
-
-const POST_COLUMNS = `p.id, p.user_id, u.handle, p.text, p.is_public, p.like_count, p.comment_count, p.created_at`;
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -135,33 +142,22 @@ function send(res, timing, status, json) {
 }
 
 // --- Database access ---------------------------------------------------------------------------------------------
-// All SQL texts are constants, so each distinct text gets a stable statement name (q1, q2, ...).
-const statementNames = new Map();
-function statementName(text) {
-  let name = statementNames.get(text);
-  if (name === undefined) {
-    name = `q${statementNames.size + 1}`;
-    statementNames.set(text, name);
-  }
-  return name;
-}
-
-// One pooled connection per request, returned to the pool before the response is sent. `fn` receives a query
-// wrapper that adds each query's duration to timing.db; time waiting for a pooled connection (or opening a new
-// one while the pool fills) goes to timing.conn.
+// One reserved connection per request, released before the response is sent. `fn` receives `db.q`, a tagged
+// template (db.q`SELECT ... ${value}`) that runs on that connection and adds each query's duration to timing.db;
+// time waiting for a free connection (or opening a new one while the pool fills) goes to timing.conn.
 async function withClient(timing, fn) {
   const connectStart = nowMs();
-  let client;
+  let conn;
   try {
-    client = await pool.connect();
+    conn = await sql.reserve();
   } finally {
     timing.conn += nowMs() - connectStart;
   }
   const db = {
-    async query(text, params) {
+    async q(strings, ...values) {
       const start = nowMs();
       try {
-        return await client.query({ name: statementName(text), text, values: params });
+        return int8ToNumber(await conn(strings, ...values));
       } finally {
         timing.db += nowMs() - start;
       }
@@ -170,7 +166,7 @@ async function withClient(timing, fn) {
   try {
     return await fn(db);
   } finally {
-    client.release();
+    conn.release();
   }
 }
 
@@ -202,11 +198,11 @@ function cachedFeed(timing, limit, before) {
     return entry.body;
   }
   feedStats.miss++;
-  const body = withClient(timing, (db) => db.query(
-    `SELECT ${POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id
-     WHERE p.is_public AND p.id < $1 ORDER BY p.id DESC LIMIT $2`,
-    [before, limit],
-  )).then(({ rows }) => JSON.stringify(page(rows, limit)));
+  const body = withClient(timing, (db) => db.q`
+    SELECT p.id, p.user_id, u.handle, p.text, p.is_public, p.like_count, p.comment_count, p.created_at
+    FROM posts p JOIN users u ON u.id = p.user_id
+    WHERE p.is_public AND p.id < ${before}::bigint ORDER BY p.id DESC LIMIT ${limit}::int`,
+  ).then((rows) => JSON.stringify(page(rows, limit)));
   const fresh = { expires: now + FEED_CACHE_TTL_MS, body };
   feedCache.set(key, fresh);
   // A failed query is not cached: the waiting requests get the error, the next request retries.
@@ -215,11 +211,13 @@ function cachedFeed(timing, limit, before) {
 }
 
 // --- Handlers ------------------------------------------------------------------------------------------------------
-// Each handler gets a context { req, timing, query, params } and returns [status, json string].
+// Each handler gets a context { req, timing, query, params } and returns [status, json string]. The column list is
+// written out in every query: in a tagged template an interpolated string would become a parameter. Every parameter
+// has an explicit cast, so a JS number is never sent as float8 (which would keep the planner off the id indexes).
 const ok = (body, status = 200) => [status, JSON.stringify(body)];
 
 async function health(ctx) {
-  await withClient(ctx.timing, (db) => db.query('SELECT 1'));
+  await withClient(ctx.timing, (db) => db.q`SELECT 1`);
   return ok({ status: 'ok' });
 }
 
@@ -232,18 +230,14 @@ async function getPost(ctx) {
   const postId = requireId(ctx.params[0]);
   const viewer = optionalUser(ctx.req);
   const body = await withClient(ctx.timing, async (db) => {
-    const { rows } = await db.query(
-      `SELECT ${POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id WHERE p.id = $1`,
-      [postId],
-    );
-    const post = rows[0];
+    const [post] = await db.q`
+      SELECT p.id, p.user_id, u.handle, p.text, p.is_public, p.like_count, p.comment_count, p.created_at
+      FROM posts p JOIN users u ON u.id = p.user_id WHERE p.id = ${postId}::bigint`;
     if (!post || (!post.is_public && post.user_id !== viewer)) throw new HttpError(404, 'not found');
-    const comments = await db.query(
-      `SELECT id, post_id, user_id, text, created_at FROM comments
-       WHERE post_id = $1 ORDER BY id DESC LIMIT 20`,
-      [postId],
-    );
-    return { post, comments: comments.rows };
+    const comments = await db.q`
+      SELECT id, post_id, user_id, text, created_at FROM comments
+      WHERE post_id = ${postId}::bigint ORDER BY id DESC LIMIT 20`;
+    return { post, comments };
   });
   return ok(body);
 }
@@ -251,22 +245,21 @@ async function getPost(ctx) {
 async function userPosts(ctx) {
   const userId = requireId(ctx.params[0]);
   const { limit, before } = pageParams(ctx.query);
-  const { rows } = await withClient(ctx.timing, (db) => db.query(
-    `SELECT ${POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id
-     WHERE p.user_id = $1 AND p.is_public AND p.id < $2 ORDER BY p.id DESC LIMIT $3`,
-    [userId, before, limit],
-  ));
+  const rows = await withClient(ctx.timing, (db) => db.q`
+    SELECT p.id, p.user_id, u.handle, p.text, p.is_public, p.like_count, p.comment_count, p.created_at
+    FROM posts p JOIN users u ON u.id = p.user_id
+    WHERE p.user_id = ${userId}::bigint AND p.is_public AND p.id < ${before}::bigint
+    ORDER BY p.id DESC LIMIT ${limit}::int`);
   return ok(page(rows, limit));
 }
 
 async function myPosts(ctx) {
   const userId = requireUser(ctx.req);
   const { limit, before } = pageParams(ctx.query);
-  const { rows } = await withClient(ctx.timing, (db) => db.query(
-    `SELECT ${POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id
-     WHERE p.user_id = $1 AND p.id < $2 ORDER BY p.id DESC LIMIT $3`,
-    [userId, before, limit],
-  ));
+  const rows = await withClient(ctx.timing, (db) => db.q`
+    SELECT p.id, p.user_id, u.handle, p.text, p.is_public, p.like_count, p.comment_count, p.created_at
+    FROM posts p JOIN users u ON u.id = p.user_id
+    WHERE p.user_id = ${userId}::bigint AND p.id < ${before}::bigint ORDER BY p.id DESC LIMIT ${limit}::int`);
   return ok(page(rows, limit));
 }
 
@@ -276,14 +269,14 @@ async function createPost(ctx) {
   const text = validText(body);
   const isPublic = body.is_public === undefined ? true : body.is_public;
   if (typeof isPublic !== 'boolean') throw new HttpError(400, 'is_public must be a boolean');
-  const { rows } = await withClient(ctx.timing, (db) => db.query(
-    `WITH p AS (
-       INSERT INTO posts (user_id, text, is_public) VALUES ($1, $2, $3) RETURNING *
-     )
-     SELECT ${POST_COLUMNS} FROM p JOIN users u ON u.id = p.user_id`,
-    [userId, text, isPublic],
-  ));
-  return ok({ post: rows[0] }, 201);
+  const [post] = await withClient(ctx.timing, (db) => db.q`
+    WITH p AS (
+      INSERT INTO posts (user_id, text, is_public) VALUES (${userId}::bigint, ${text}::text, ${isPublic}::boolean)
+      RETURNING *
+    )
+    SELECT p.id, p.user_id, u.handle, p.text, p.is_public, p.like_count, p.comment_count, p.created_at
+    FROM p JOIN users u ON u.id = p.user_id`);
+  return ok({ post }, 201);
 }
 
 async function like(ctx) {
@@ -291,34 +284,32 @@ async function like(ctx) {
   const postId = requireId(ctx.params[0]);
   // Insert the like only if the post exists; bump the counter only if the like is new. The outer SELECT sees the
   // snapshot from before the statement, so a new like's count comes from `upd`, an existing like's from `posts`.
-  const { rows } = await withClient(ctx.timing, (db) => db.query(
-    `WITH ins AS (
-       INSERT INTO likes (post_id, user_id) SELECT id, $2::bigint FROM posts WHERE id = $1
-       ON CONFLICT DO NOTHING RETURNING post_id
-     ), upd AS (
-       UPDATE posts SET like_count = like_count + 1 FROM ins WHERE posts.id = ins.post_id RETURNING posts.like_count
-     )
-     SELECT COALESCE((SELECT like_count FROM upd), (SELECT like_count FROM posts WHERE id = $1)) AS like_count`,
-    [postId, userId],
-  ));
-  if (rows[0].like_count === null) throw new HttpError(404, 'not found');
-  return ok({ liked: true, like_count: rows[0].like_count });
+  const [row] = await withClient(ctx.timing, (db) => db.q`
+    WITH ins AS (
+      INSERT INTO likes (post_id, user_id) SELECT id, ${userId}::bigint FROM posts WHERE id = ${postId}::bigint
+      ON CONFLICT DO NOTHING RETURNING post_id
+    ), upd AS (
+      UPDATE posts SET like_count = like_count + 1 FROM ins WHERE posts.id = ins.post_id RETURNING posts.like_count
+    )
+    SELECT COALESCE((SELECT like_count FROM upd),
+                    (SELECT like_count FROM posts WHERE id = ${postId}::bigint)) AS like_count`);
+  if (row.like_count === null) throw new HttpError(404, 'not found');
+  return ok({ liked: true, like_count: row.like_count });
 }
 
 async function unlike(ctx) {
   const userId = requireUser(ctx.req);
   const postId = requireId(ctx.params[0]);
-  const { rows } = await withClient(ctx.timing, (db) => db.query(
-    `WITH del AS (
-       DELETE FROM likes WHERE post_id = $1 AND user_id = $2 RETURNING post_id
-     ), upd AS (
-       UPDATE posts SET like_count = like_count - 1 FROM del WHERE posts.id = del.post_id RETURNING posts.like_count
-     )
-     SELECT COALESCE((SELECT like_count FROM upd), (SELECT like_count FROM posts WHERE id = $1)) AS like_count`,
-    [postId, userId],
-  ));
-  if (rows[0].like_count === null) throw new HttpError(404, 'not found');
-  return ok({ liked: false, like_count: rows[0].like_count });
+  const [row] = await withClient(ctx.timing, (db) => db.q`
+    WITH del AS (
+      DELETE FROM likes WHERE post_id = ${postId}::bigint AND user_id = ${userId}::bigint RETURNING post_id
+    ), upd AS (
+      UPDATE posts SET like_count = like_count - 1 FROM del WHERE posts.id = del.post_id RETURNING posts.like_count
+    )
+    SELECT COALESCE((SELECT like_count FROM upd),
+                    (SELECT like_count FROM posts WHERE id = ${postId}::bigint)) AS like_count`);
+  if (row.like_count === null) throw new HttpError(404, 'not found');
+  return ok({ liked: false, like_count: row.like_count });
 }
 
 async function comment(ctx) {
@@ -326,17 +317,15 @@ async function comment(ctx) {
   const postId = requireId(ctx.params[0]);
   const text = validText(await readJson(ctx.req));
   // Unknown post or user fails the comments foreign keys (23503).
-  const { rows } = await withClient(ctx.timing, (db) => db.query(
-    `WITH c AS (
-       INSERT INTO comments (post_id, user_id, text) VALUES ($1, $2, $3)
-       RETURNING id, post_id, user_id, text, created_at
-     ), upd AS (
-       UPDATE posts SET comment_count = comment_count + 1 FROM c WHERE posts.id = c.post_id
-     )
-     SELECT * FROM c`,
-    [postId, userId, text],
-  ));
-  return ok({ comment: rows[0] }, 201);
+  const [row] = await withClient(ctx.timing, (db) => db.q`
+    WITH c AS (
+      INSERT INTO comments (post_id, user_id, text) VALUES (${postId}::bigint, ${userId}::bigint, ${text}::text)
+      RETURNING id, post_id, user_id, text, created_at
+    ), upd AS (
+      UPDATE posts SET comment_count = comment_count + 1 FROM c WHERE posts.id = c.post_id
+    )
+    SELECT * FROM c`);
+  return ok({ comment: row }, 201);
 }
 
 // --- Router ----------------------------------------------------------------------------------------------------------
@@ -362,7 +351,7 @@ function route(method, seg) {
 function errorResponse(err) {
   if (err instanceof HttpError) return ok({ error: err.message }, err.status);
   if (err instanceof URIError) return ok({ error: 'malformed URL' }, 400);
-  if (err.code === '23503') {
+  if (err.errno === '23503') { // Bun.sql: SQLSTATE in errno (err.code is Bun's own error code)
     // Foreign key violation: unknown post -> 404, unknown acting user -> 401.
     if (/user_id/.test(err.constraint || '')) return ok({ error: 'unknown user' }, 401);
     return ok({ error: 'not found' }, 404);
@@ -394,7 +383,7 @@ const server = http.createServer((req, res) => { handle(req, res); });
 server.listen(PORT, () => console.log(`node-http listening on :${PORT}`));
 
 function shutdown() {
-  server.close(() => pool.end().then(() => process.exit(0)));
+  server.close(() => sql.close().then(() => process.exit(0)));
   setTimeout(() => process.exit(1), 5000).unref();
 }
 process.on('SIGTERM', shutdown);
