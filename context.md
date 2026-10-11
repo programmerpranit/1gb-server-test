@@ -4,17 +4,17 @@ Handoff notes between working sessions: where things stand, what is decided, wha
 it at the end of every session. Rules, protocol and the full plan stay in [CLAUDE.md](CLAUDE.md); numbers and
 per-tag analysis in [README.md](README.md) and `results/<tag>/config.md`.
 
-_Last updated: 2026-10-10, end of session 1._
+_Last updated: 2026-10-11, session 2 (v06 released)._
 
 ## Infrastructure state
 
 | Machine | State | Notes |
 |---|---|---|
 | Target droplet `1gb-test` (blr1, $6, 1 vCPU / 1 GB) | **Running, keep it** | Public 143.110.255.234, private 10.122.0.2. Holds the `bench_seed` template DB and the installed app. |
-| Load generator (blr1, 4 vCPU / 8 GB shared, `do-blr1-loadgen-4vcpu-8gb`) | **Destroyed by the user at end of session** | Was 143.110.248.244 / private 10.122.0.3. `LOADGEN_HOST` in `.env` is now stale. |
+| Load generator (blr1, 4 vCPU / 8 GB shared, `do-blr1-loadgen-4vcpu-8gb`) | **Running (session 2)**, destroy at end of session | Public 168.144.21.215, private 10.122.0.4. In `.env` as `LOADGEN_HOST`. (A 2 vCPU / 4 GB droplet, 64.227.156.31, was created by mistake and replaced.) |
 
-- App deployed on the target: **node-express v05** (commit `f7166fe`: pool 10, single-statement CTE writes,
-  prepared statements). `bench-app` service active.
+- App deployed on the target: **node-express v06** (commit `887f64c`: v05 + 1 s in-process cache of `GET /posts`).
+  `bench-app` service active.
 - Postgres 16.15 at defaults; no server-side setting changed (no `enable_memoize` change yet).
 - `/tmp/bench-prof/` on the target held the raw profiling data (perf.data, .cpuprofile); safe to delete.
 
@@ -35,8 +35,10 @@ _Last updated: 2026-10-10, end of session 1._
 | node-express-v03-pool-20 | pool max 20 | 1200 (marginal) | 574 | 1300 | worse: 2× query time from contention; keep pool 10 |
 | node-express-v04-cte-writes | single-statement writes (parent v02) | 1400 rule / ≈ 1300–1400 real | 540–660 | 1500 | no measurable gain; 1300/1350 failed; kept as parent |
 | node-express-v05-prepared | prepared statements (parent v04) | 1400 | 645 | 1500 | PG share ≈ 43.5 %; likely 5–10 % gain, within noise |
+| node-express-v06-feed-cache-1s | 1 s in-process cache of `GET /posts`, all pages (parent v05) | 3000 | 1541 | 3200 | 2.4× v05; 99.6 % hits; Node ≈ 60 % / PG ≈ 30 %; trade-off: feed ≤ 1 s stale |
 
-All five are released on GitHub (build, results, `report-<tag>.html`). Best configuration: **v05**.
+All six are released on GitHub (build, results, `report-<tag>.html`). Best configuration: **v06** (cached; best
+uncached: v05).
 
 ## Key learnings (beyond CLAUDE.md)
 - **The ceiling is CPU** (≈ 600–690 req/s on this vCPU for node-express). Past it, latency is pool wait (`conn`),
@@ -53,13 +55,15 @@ All five are released on GitHub (build, results, `report-<tag>.html`). Best conf
 - No hardware perf counters on the droplet (`<not supported>` for instructions/cycles); perf samples cpu-clock.
 
 ## Open decisions / next steps
-1. **v06 `node-express-v06-no-memoize`** (parent v05): `enable_memoize = off`. Open question for the user: set it
-   **on the DB role** (`ALTER ROLE ... SET`, simplest, but affects every stack using the role — must be recorded and
-   reverted per fairness rule 5) or **in the Node app** (`SET enable_memoize = off` on each new pool connection,
-   stack-local). VU levels not chosen yet; suggested 1000 + 1300 / 1400 / 1500.
-2. Then: Fastify instead of Express; 1 s cache of the first global-feed page (labelled trade-off); smaller items
-   (ETag off, Unix socket, V8 young generation); then Bun / cluster; then other stacks (Phase 3+).
-3. Maybe later: repeat runs per level (needs run-dir naming like `vus-1500-r2`; today a rerun overwrites the level).
+1. **v07 `node-express-v07-feed-cache-5s`** (parent v06): only `FEED_CACHE_TTL_MS` 1000 → 5000 in
+   `apps/node-express/src/server.js` (+ header comment "1 s" and `bench.json` change). User's plan. VU levels not
+   chosen yet; suggest the v06 levels (1000 … 3000, 3200) for a direct comparison.
+2. Then: Fastify (Node is ≈ 2/3 of CPU now); stale-while-revalidate for the feed cache (cached feed requests wait
+   ≈ 200 ms p95 at 3000 VUs behind the refresh query's pool wait); ETag off; `enable_memoize = off` (less valuable
+   now: feed queries are mostly cached); then Bun / cluster; then other stacks (Phase 3+).
+3. From 2000 VUs the load generator peaks at ≈ 97 % CPU in single samples (average ≤ 40 %). If v07+ goes past
+   ≈ 3500 VUs, consider a bigger load generator (would need a new `LOADGEN_LABEL`).
+4. Maybe later: repeat runs per level (needs run-dir naming like `vus-1500-r2`; today a rerun overwrites the level).
 
 ## Working agreements with the user
 - **The user picks every VU level.** Claude may suggest, never runs levels on its own.
@@ -69,7 +73,7 @@ All five are released on GitHub (build, results, `report-<tag>.html`). Best conf
 - **Never publish claude.ai Artifacts**; the GitHub release (with `report-<tag>.html`) is enough.
 - Flag marginal passes (within ≈ 5 % of a limit), CPU dips (client stalls) and host-speed outliers before trusting
   a verdict; propose a rerun when it matters.
-- Commits end with the Co-Authored-By + Claude-Session trailer; push to `main` (private repo
+- Commits end with the Co-Authored-By trailer (+ Claude-Session when a session URL is known); push to `main` (private repo
   `programmerpranit/1gb-server-test`).
 
 ## Tooling fixes made this session (all committed)

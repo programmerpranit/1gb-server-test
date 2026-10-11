@@ -329,8 +329,11 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
       variance (one run ≈ 30 % faster, no steal) → added `cpu_probe.sh` + `cpu_ms_per_req_steady`.
 - [x] Profile of v05 at 1000 VUs (`profiles/2026-10-10-node-express-v05-1000vus/`): Node 44 % / Postgres 35 % /
       idle 14 %; Memoize setup in feed queries ≈ 10 % of Postgres CPU; Express + router ≈ 24 % of Node JS time.
-- [ ] **`node-express-v06-feed-cache-1s`** (parent v05) — in-process cache of `GET /posts` (all pages, key
+- [x] **`node-express-v06-feed-cache-1s`** (parent v05) — in-process cache of `GET /posts` (all pages, key
       limit + before, TTL 1 s, single-flight; ≈ 47 % of requests). Labelled trade-off: global feed up to 1 s stale.
+      Capacity 3000 VUs / 1541 req/s (2.4× v05), first fail 3200; 99.6 % hits; CPU/req 0.97 vs. 1.67 ms at 1000 VUs.
+      Still CPU-bound, now Node ≈ 60 % / PG ≈ 30 %. At saturation cached feed requests wait ≈ 200 ms p95 behind the
+      refresh query's pool wait (stale-while-revalidate would fix it).
 - [ ] **`node-express-v07-feed-cache-5s`** (parent v06) — same cache, TTL 5 s.
 - [ ] `enable_memoize = off` (moved down: the cache removes most feed queries, where Memoize cost was).
 - VU levels are chosen by the user for every run.
@@ -377,7 +380,8 @@ HTTP/1.1 keep-alive behaviour.
 - Never edit files under an already released `results/<tag>/`.
 - Before claiming an optimisation helped, compare at the same VU levels, same load source, and check steal %
   (a noisy neighbour can swing results; re-run if steal is high).
-- To compare changes worth < 10 %, suggest one unsaturated level (CPU per request, e.g. 1000 VUs for node-express) in
+- To compare changes worth < 10 %, suggest one unsaturated level (CPU per request, e.g. 1000 VUs for node-express
+  up to v05, 1000–1500 VUs with the feed cache) in
   addition to edge levels; at the ceiling single runs swing ±60 req/s.
 - Near the CPU ceiling single runs are noisy (v02: 1200 VUs scored worse than 1250 after a load-generator stall).
   Check `server_metrics.csv` for CPU dips with connections still open (= client/network stall) before trusting a

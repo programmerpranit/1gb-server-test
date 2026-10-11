@@ -1,0 +1,15 @@
+app=node-express
+kernel=6.8.0-142-generic
+os=Ubuntu 24.04.5 LTS
+nproc=1
+mem_total_mb=961
+node=v24.21.0
+python=3.12.3
+go=
+postgres=16.15
+swap_mb=0
+shared_buffers=128MB
+max_connections=100
+mem_avail_mb_idle=628
+cpu_probe_before_ms=88.3
+cpu_probe_after_ms=83.5

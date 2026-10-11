@@ -1,0 +1,64 @@
+[32m     ✓ GET /posts 2xx[0m
+[32m     ✓ GET /posts/:id 2xx[0m
+[32m     ✓ POST /posts 2xx[0m
+[32m     ✓ POST /posts/:id/like 2xx[0m
+[32m     ✓ GET /users/:id/posts 2xx[0m
+[32m     ✓ GET /me/posts 2xx[0m
+[32m     ✓ POST /posts/:id/comments 2xx[0m
+[32m     ✓ DELETE /posts/:id/like 2xx[0m
+
+     checks[2m................................:[0m [36m100.00%[0m [36;2m✓ 121158[0m     [36;2m✗ 0[0m     
+     data_received[2m.........................:[0m [36m315 MB[0m  [36;2m2.6 MB/s[0m
+     data_sent[2m.............................:[0m [36m18 MB[0m   [36;2m146 kB/s[0m
+     http_req_blocked[2m......................:[0m avg=[36m27.48µs[0m  min=[36m2.04µs[0m   med=[36m7.11µs[0m  max=[36m18.87ms[0m  p(90)=[36m10.23µs[0m  p(95)=[36m15.56µs[0m  p(99)=[36m689.64µs[0m
+     http_req_connecting[2m...................:[0m avg=[36m16.57µs[0m  min=[36m0s[0m       med=[36m0s[0m      max=[36m18.63ms[0m  p(90)=[36m0s[0m       p(95)=[36m0s[0m       p(99)=[36m569.95µs[0m
+     http_req_duration[2m.....................:[0m avg=[36m38.84ms[0m  min=[36m411.23µs[0m med=[36m9.78ms[0m  max=[36m495.69ms[0m p(90)=[36m107.9ms[0m  p(95)=[36m188.13ms[0m p(99)=[36m417.78ms[0m
+       { expected_response:true }[2m..........:[0m avg=[36m38.84ms[0m  min=[36m411.23µs[0m med=[36m9.78ms[0m  max=[36m495.69ms[0m p(90)=[36m107.9ms[0m  p(95)=[36m188.13ms[0m p(99)=[36m417.78ms[0m
+     [32m✓[0m { name:DELETE /posts/:id/like }[2m.....:[0m avg=[36m60.11ms[0m  min=[36m1.27ms[0m   med=[36m16.44ms[0m max=[36m474.99ms[0m p(90)=[36m157.01ms[0m p(95)=[36m310.07ms[0m p(99)=[36m438.19ms[0m
+     [32m✓[0m { name:GET /me/posts }[2m..............:[0m avg=[36m55.58ms[0m  min=[36m782.17µs[0m med=[36m11.93ms[0m max=[36m469.43ms[0m p(90)=[36m153.43ms[0m p(95)=[36m271.08ms[0m p(99)=[36m434.88ms[0m
+     [32m✓[0m { name:GET /posts }[2m.................:[0m avg=[36m16.63ms[0m  min=[36m411.23µs[0m med=[36m7.11ms[0m  max=[36m453.89ms[0m p(90)=[36m33.55ms[0m  p(95)=[36m53.11ms[0m  p(99)=[36m223.43ms[0m
+     [32m✓[0m { name:GET /posts/:id }[2m.............:[0m avg=[36m62.16ms[0m  min=[36m863.36µs[0m med=[36m16.4ms[0m  max=[36m495.69ms[0m p(90)=[36m169.33ms[0m p(95)=[36m300.44ms[0m p(99)=[36m447.91ms[0m
+     [32m✓[0m { name:GET /users/:id/posts }[2m.......:[0m avg=[36m55.07ms[0m  min=[36m728.13µs[0m med=[36m12.09ms[0m max=[36m479.67ms[0m p(90)=[36m152.57ms[0m p(95)=[36m279.17ms[0m p(99)=[36m437.88ms[0m
+     [32m✓[0m { name:POST /posts }[2m................:[0m avg=[36m59.52ms[0m  min=[36m1.37ms[0m   med=[36m15.43ms[0m max=[36m480.23ms[0m p(90)=[36m161.29ms[0m p(95)=[36m304.76ms[0m p(99)=[36m445.32ms[0m
+     [32m✓[0m { name:POST /posts/:id/comments }[2m...:[0m avg=[36m57.95ms[0m  min=[36m1.38ms[0m   med=[36m14ms[0m    max=[36m487.2ms[0m  p(90)=[36m153.22ms[0m p(95)=[36m294.07ms[0m p(99)=[36m440.96ms[0m
+     [32m✓[0m { name:POST /posts/:id/like }[2m.......:[0m avg=[36m57.07ms[0m  min=[36m968.81µs[0m med=[36m13.9ms[0m  max=[36m481.38ms[0m p(90)=[36m156.08ms[0m p(95)=[36m284.79ms[0m p(99)=[36m437.15ms[0m
+     [32m✓[0m { phase:ramp }[2m......................:[0m avg=[36m29.17ms[0m  min=[36m468.2µs[0m  med=[36m5.11ms[0m  max=[36m442.2ms[0m  p(90)=[36m78.85ms[0m  p(95)=[36m175.89ms[0m p(99)=[36m312.91ms[0m
+     [32m✓[0m { phase:steady }[2m....................:[0m avg=[36m43.91ms[0m  min=[36m411.23µs[0m med=[36m12.43ms[0m max=[36m495.69ms[0m p(90)=[36m112.66ms[0m p(95)=[36m192.31ms[0m p(99)=[36m435.9ms[0m 
+   [32m✓[0m http_req_failed[2m.......................:[0m [36m0.00%[0m   [36;2m✓ 0[0m          [36;2m✗ 121159[0m
+     [32m✓[0m { phase:steady }[2m....................:[0m [36m0.00%[0m   [36;2m✓ 0[0m          [36;2m✗ 79488[0m 
+     http_req_receiving[2m....................:[0m avg=[36m97.96µs[0m  min=[36m19.25µs[0m  med=[36m69.34µs[0m max=[36m30.13ms[0m  p(90)=[36m131.47µs[0m p(95)=[36m236.23µs[0m p(99)=[36m588.99µs[0m
+     http_req_sending[2m......................:[0m avg=[36m43.6µs[0m   min=[36m6.5µs[0m    med=[36m22.53µs[0m max=[36m21.36ms[0m  p(90)=[36m47.9µs[0m   p(95)=[36m103.14µs[0m p(99)=[36m416.45µs[0m
+     http_req_tls_handshaking[2m..............:[0m avg=[36m0s[0m       min=[36m0s[0m       med=[36m0s[0m      max=[36m0s[0m       p(90)=[36m0s[0m       p(95)=[36m0s[0m       p(99)=[36m0s[0m      
+     http_req_waiting[2m......................:[0m avg=[36m38.7ms[0m   min=[36m347.62µs[0m med=[36m9.64ms[0m  max=[36m495.57ms[0m p(90)=[36m107.8ms[0m  p(95)=[36m187.77ms[0m p(99)=[36m417.56ms[0m
+     http_reqs[2m.............................:[0m [36m121159[0m  [36;2m982.079167/s[0m
+     [32m✓[0m { phase:ramp }[2m......................:[0m [36m41670[0m   [36;2m337.764746/s[0m
+     [32m✓[0m { phase:steady }[2m....................:[0m [36m79488[0m   [36;2m644.306315/s[0m
+     iteration_duration[2m....................:[0m avg=[36m2.1s[0m     min=[36m1s[0m       med=[36m2.1s[0m    max=[36m4.04s[0m    p(90)=[36m2.9s[0m     p(95)=[36m3s[0m       p(99)=[36m3.37s[0m   
+     iterations[2m............................:[0m [36m108218[0m  [36;2m877.183233/s[0m
+     server_app[2m............................:[0m avg=[36m2.47ms[0m   min=[36m0s[0m       med=[36m100µs[0m   max=[36m433.2ms[0m  p(90)=[36m300µs[0m    p(95)=[36m400µs[0m    p(99)=[36m87.14ms[0m 
+     [32m✓[0m { phase:steady }[2m....................:[0m avg=[36m2.91ms[0m   min=[36m0s[0m       med=[36m100µs[0m   max=[36m433.2ms[0m  p(90)=[36m200µs[0m    p(95)=[36m400µs[0m    p(99)=[36m115.4ms[0m 
+     server_conn[2m...........................:[0m avg=[36m20.75ms[0m  min=[36m0s[0m       med=[36m0s[0m      max=[36m457.5ms[0m  p(90)=[36m61.8ms[0m   p(95)=[36m127.11ms[0m p(99)=[36m366.44ms[0m
+     [32m✓[0m { name:DELETE /posts/:id/like }[2m.....:[0m avg=[36m41.07ms[0m  min=[36m0s[0m       med=[36m100µs[0m   max=[36m451.9ms[0m  p(90)=[36m124.61ms[0m p(95)=[36m261.87ms[0m p(99)=[36m399.29ms[0m
+     [32m✓[0m { name:GET /me/posts }[2m..............:[0m avg=[36m38.07ms[0m  min=[36m0s[0m       med=[36m100µs[0m   max=[36m442.9ms[0m  p(90)=[36m116.48ms[0m p(95)=[36m236.36ms[0m p(99)=[36m397.95ms[0m
+     [32m✓[0m { name:GET /posts }[2m.................:[0m avg=[36m121.51µs[0m min=[36m0s[0m       med=[36m0s[0m      max=[36m421.5ms[0m  p(90)=[36m0s[0m       p(95)=[36m0s[0m       p(99)=[36m0s[0m      
+     [32m✓[0m { name:GET /posts/:id }[2m.............:[0m avg=[36m39.05ms[0m  min=[36m0s[0m       med=[36m0s[0m      max=[36m457.5ms[0m  p(90)=[36m121.3ms[0m  p(95)=[36m244.7ms[0m  p(99)=[36m396.64ms[0m
+     [32m✓[0m { name:GET /users/:id/posts }[2m.......:[0m avg=[36m37.61ms[0m  min=[36m0s[0m       med=[36m100µs[0m   max=[36m449.4ms[0m  p(90)=[36m113.47ms[0m p(95)=[36m238.94ms[0m p(99)=[36m398.44ms[0m
+     [32m✓[0m { name:POST /posts }[2m................:[0m avg=[36m40.08ms[0m  min=[36m0s[0m       med=[36m0s[0m      max=[36m452.8ms[0m  p(90)=[36m118.1ms[0m  p(95)=[36m263.36ms[0m p(99)=[36m402.3ms[0m 
+     [32m✓[0m { name:POST /posts/:id/comments }[2m...:[0m avg=[36m39.11ms[0m  min=[36m0s[0m       med=[36m0s[0m      max=[36m457.4ms[0m  p(90)=[36m118.18ms[0m p(95)=[36m253.27ms[0m p(99)=[36m400.2ms[0m 
+     [32m✓[0m { name:POST /posts/:id/like }[2m.......:[0m avg=[36m38.29ms[0m  min=[36m0s[0m       med=[36m0s[0m      max=[36m451.8ms[0m  p(90)=[36m120.5ms[0m  p(95)=[36m241.6ms[0m  p(99)=[36m391.67ms[0m
+     [32m✓[0m { phase:steady }[2m....................:[0m avg=[36m23.91ms[0m  min=[36m0s[0m       med=[36m0s[0m      max=[36m457.5ms[0m  p(90)=[36m68.8ms[0m   p(95)=[36m126.6ms[0m  p(99)=[36m391.4ms[0m 
+     server_db[2m.............................:[0m avg=[36m4.31ms[0m   min=[36m0s[0m       med=[36m900µs[0m   max=[36m162.6ms[0m  p(90)=[36m12.2ms[0m   p(95)=[36m18ms[0m     p(99)=[36m35.6ms[0m  
+     [32m✓[0m { phase:steady }[2m....................:[0m avg=[36m4.63ms[0m   min=[36m0s[0m       med=[36m900µs[0m   max=[36m157.1ms[0m  p(90)=[36m12.8ms[0m   p(95)=[36m18.3ms[0m   p(99)=[36m35.9ms[0m  
+   [32m✓[0m server_timing_missing[2m.................:[0m [36m0[0m       [36;2m0/s[0m
+     server_total[2m..........................:[0m avg=[36m27.53ms[0m  min=[36m0s[0m       med=[36m1.3ms[0m   max=[36m481.6ms[0m  p(90)=[36m83.5ms[0m   p(95)=[36m159.81ms[0m p(99)=[36m388.44ms[0m
+     [32m✓[0m { name:DELETE /posts/:id/like }[2m.....:[0m avg=[36m48.71ms[0m  min=[36m700µs[0m    med=[36m8.35ms[0m  max=[36m461.4ms[0m  p(90)=[36m134.4ms[0m  p(95)=[36m270.93ms[0m p(99)=[36m416.76ms[0m
+     [32m✓[0m { name:GET /me/posts }[2m..............:[0m avg=[36m44.24ms[0m  min=[36m300µs[0m    med=[36m4.9ms[0m   max=[36m453.5ms[0m  p(90)=[36m125.84ms[0m p(95)=[36m247.77ms[0m p(99)=[36m408.19ms[0m
+     [32m✓[0m { name:GET /posts }[2m.................:[0m avg=[36m5.26ms[0m   min=[36m0s[0m       med=[36m100µs[0m   max=[36m433.2ms[0m  p(90)=[36m200µs[0m    p(95)=[36m1.2ms[0m    p(99)=[36m193.6ms[0m 
+     [32m✓[0m { name:GET /posts/:id }[2m.............:[0m avg=[36m51.02ms[0m  min=[36m400µs[0m    med=[36m9.4ms[0m   max=[36m481.6ms[0m  p(90)=[36m144ms[0m    p(95)=[36m268.35ms[0m p(99)=[36m421.43ms[0m
+     [32m✓[0m { name:GET /users/:id/posts }[2m.......:[0m avg=[36m43.86ms[0m  min=[36m300µs[0m    med=[36m5ms[0m     max=[36m465.8ms[0m  p(90)=[36m124.68ms[0m p(95)=[36m252.38ms[0m p(99)=[36m408.24ms[0m
+     [32m✓[0m { name:POST /posts }[2m................:[0m avg=[36m47.86ms[0m  min=[36m800µs[0m    med=[36m8.1ms[0m   max=[36m465.5ms[0m  p(90)=[36m130ms[0m    p(95)=[36m274.36ms[0m p(99)=[36m413.76ms[0m
+     [32m✓[0m { name:POST /posts/:id/comments }[2m...:[0m avg=[36m46.71ms[0m  min=[36m900µs[0m    med=[36m7.1ms[0m   max=[36m472.7ms[0m  p(90)=[36m129.84ms[0m p(95)=[36m263.68ms[0m p(99)=[36m414.5ms[0m 
+     [32m✓[0m { name:POST /posts/:id/like }[2m.......:[0m avg=[36m45.89ms[0m  min=[36m400µs[0m    med=[36m7.1ms[0m   max=[36m465ms[0m    p(90)=[36m131.63ms[0m p(95)=[36m254.52ms[0m p(99)=[36m403.34ms[0m
+     [32m✓[0m { phase:steady }[2m....................:[0m avg=[36m31.46ms[0m  min=[36m0s[0m       med=[36m1.4ms[0m   max=[36m481.6ms[0m  p(90)=[36m88.7ms[0m   p(95)=[36m165.6ms[0m  p(99)=[36m406.4ms[0m 
+     vus[2m...................................:[0m [36m46[0m      [36;2mmin=0[0m        [36;2mmax=2500[0m
+     vus_max[2m...............................:[0m [36m2500[0m    [36;2mmin=2017[0m     [36;2mmax=2500[0m
