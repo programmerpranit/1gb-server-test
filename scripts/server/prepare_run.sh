@@ -16,7 +16,10 @@ SQL
 systemctl restart postgresql
 sync; echo 3 > /proc/sys/vm/drop_caches
 systemctl start bench-app
-if systemctl is-enabled --quiet nginx 2>/dev/null; then systemctl restart nginx; fi
+# nginx (if the app runs behind it) restarts with an empty cache: cache dirs live in tmpfs (/dev/shm/nginx-*).
+if systemctl is-enabled --quiet nginx 2>/dev/null; then
+  systemctl stop nginx; rm -rf /dev/shm/nginx-*; systemctl start nginx
+fi
 
 for _ in $(seq 1 30); do
   curl -fsS "http://127.0.0.1:$APP_PORT/health" >/dev/null 2>&1 && break
