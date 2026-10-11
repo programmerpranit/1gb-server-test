@@ -4,7 +4,7 @@ Handoff notes between working sessions: where things stand, what is decided, wha
 it at the end of every session. Rules, protocol and the full plan stay in [CLAUDE.md](CLAUDE.md); numbers and
 per-tag analysis in [README.md](README.md) and `results/<tag>/config.md`.
 
-_Last updated: 2026-10-11, session 2 (node-express v06, node-http v01 and v02 released)._
+_Last updated: 2026-10-11, end of session 2 (Node/Bun phase closed at node-http v04)._
 
 ## Infrastructure state
 
@@ -13,7 +13,7 @@ _Last updated: 2026-10-11, session 2 (node-express v06, node-http v01 and v02 re
 | Target droplet `1gb-test` (blr1, $6, 1 vCPU / 1 GB) | **Running, keep it** | Public 143.110.255.234, private 10.122.0.2. Holds the `bench_seed` template DB and the installed app. |
 | Load generator (blr1, 4 vCPU / 8 GB shared, `do-blr1-loadgen-4vcpu-8gb`) | **Running (session 2)**, destroy at end of session | Public 168.144.21.215, private 10.122.0.4. In `.env` as `LOADGEN_HOST`. (A 2 vCPU / 4 GB droplet, 64.227.156.31, was created by mistake and replaced.) |
 
-- App deployed on the target: **node-http v03** (commit `ed0c70a`: Bun 1.4.2 + Bun.sql). Bun is installed
+- App deployed on the target: **node-http v04** (commit `d4b36f2`: Bun 1.4.2 + Bun.serve + Bun.sql). Bun is installed
   as `/usr/local/bin/bun` (pinned in `setup.sh`).
   `bench-app` service active on :3000. **nginx 1.24 is installed but disabled** (only enabled for apps that ship
   `nginx.conf`; `/opt/bench/app.override.env` then sets PORT=3001).
@@ -41,8 +41,9 @@ _Last updated: 2026-10-11, session 2 (node-express v06, node-http v01 and v02 re
 | node-http-v01-express-v06-port | v06 on plain `node:http`, no Express (new stack) | 3200 | 1678 | 3500 | +7 % VUs; Node : PG CPU 1.55 vs. 1.93; part of req/s gain is host speed |
 | node-http-v02-bun | runtime Node → Bun 1.4.2, same code | 4200 | 2078 | 4500 | +25 % VUs; ceiling ≈ 2100 req/s (CPU 100 %); app : PG 1.28 vs. 1.48 |
 | node-http-v03-bun-sql | Bun.sql instead of pg (parent v02) | < 4500 (only 4500 tested) | – | 4500 | ≤ 5 % less app work; edge run on a slow host |
+| node-http-v04-bun-serve | Bun.serve instead of node:http (parent v03) | ≥ 4500 (only 4500 tested) | 2324 | – | app : PG 0.91; Postgres now larger; Bun PSS 59 MB; **best so far** |
 
-All nine are released on GitHub (build, results, `report-<tag>.html`). Best configuration: **node-http v02 (Bun)**
+All ten are released on GitHub (build, results, `report-<tag>.html`). Best configuration: **node-http v04 (Bun.serve + Bun.sql)**
 (cached; on Node: node-http v01; on Express: node-express v06; best uncached: node-express v05).
 
 Tried this session and **not released** (results moved aside, app reverted to v06): feed-cache TTL 5 s (3200 VUs FAIL,
@@ -64,13 +65,15 @@ Tried this session and **not released** (results moved aside, app reverted to v0
 - No hardware perf counters on the droplet (`<not supported>` for instructions/cycles); perf samples cpu-clock.
 
 ## Open decisions / next steps
-1. Done, **not released**: pool 20 on Bun at 4500 VUs — 2104 req/s (same as pool 10), query time 2×, p99 1404 vs.
-   1045 ms. Reverted to pool 10 (deployed: node-http v02).
-2. **In progress:** `node-http-v04-bun-serve` (parent v03 Bun.sql): `Bun.serve` instead of `node:http`, test at 4500.
-   Then Go / Rust stacks with the same 1 s feed cache.
-3. **Load generator limit:** 4 vCPU k6 averages ≈ 50 % at 4000–4500 VUs and spikes to ≈ 100 % every ≈ 6 s; so far the
-   verdicts were server-side. Before testing well past 4500 VUs, recreate it with 8 vCPU (new `LOADGEN_LABEL`) and
-   rerun the current best at its edge. The user prefers to keep the current setup until then.
+1. **Node/Bun phase is closed** (user, 2026-10-11) at `node-http-v04-bun-serve`: ≥ 4500 VUs / 2324 req/s.
+2. **Next, in the user's order: Python → Go → Rust → C++.** Each new stack (`apps/<stack>/`, tags `<stack>-v01-...`)
+   starts as a port of the best Node/Bun logic: same API, CTE writes, prepared statements, pool 10, 1 s in-process
+   feed cache (single-flight), `Server-Timing`. Run the parity check first: the request list is in
+   `scripts/parity` style (see session-2 scratch `parity.sh`: 39 curl calls, compare status + body + content type
+   against node-http on a freshly reset DB). Python first: FastAPI + uvicorn + asyncpg, 1 worker; runtime install goes
+   into `scripts/server/setup.sh` (idempotent).
+3. **Load generator:** 4 vCPU k6 averages ≈ 58 % at 4500 VUs with 100 % peaks. Before any stack goes past ≈ 4500 VUs,
+   recreate it with 8 vCPU (new `LOADGEN_LABEL`) and rerun node-http v04 at its edge.
 4. Small items (each likely < 5 %, the user is not interested): `enable_memoize = off`, Unix socket, ETag off.
 
 ## Working agreements with the user

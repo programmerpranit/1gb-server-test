@@ -353,8 +353,9 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
       1404 vs. 1045 ms. The CPU is the ceiling, not the pool; keep pool 10.
 - [x] **`node-http-v03-bun-sql`** (parent v02) — Bun.sql instead of pg. 4500 VUs FAIL (1955 req/s, slow host); app : PG
       1.22 vs. 1.29, ≤ 5 % gain. Released as base for v04 (user decision).
-- [ ] **`node-http-v04-bun-serve`** (parent v03) — `Bun.serve` instead of `node:http`.
-- [ ] Then: bigger load generator before ≫ 4500 VUs; Go / Rust.
+- [x] **`node-http-v04-bun-serve`** (parent v03) — `Bun.serve` instead of `node:http`. **4500 VUs PASS, 2324 req/s**
+      (p99 912 ms), no fail level tested (load generator near its limit); app : PG 0.91 (Postgres now the larger
+      share), Bun PSS 59 MB. **Node/Bun phase closed here (user, 2026-10-11).**
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
 Candidates, roughly in order: pool size (5 / 20 / 50); `pg-native` or prepared statements; Postgres tuning
@@ -363,6 +364,13 @@ workers (expected little gain on 1 vCPU — measure it); `--max-old-space-size`;
 single-statement CTE writes instead of BEGIN/COMMIT; disable ETag; in-process cache of the first global feed page
 (1 s TTL); PgBouncer; nginx in front (keep-alive, gzip on/off);
 Bun runtime; uWebSockets.js / Hono.
+
+### Cross-stack baseline (decided 2026-10-11)
+Order: **Python → Go → Rust → C++**. Each new stack starts as a port of the best Node/Bun logic so results compare
+directly: same API, single-statement CTE writes, prepared statements, DB pool max 10, the **1 s in-process cache of
+`GET /posts`** (single-flight, all pages), `Server-Timing`. Run the 39-request parity check (`parity.sh`-style:
+status + body + content type vs. node-http) before the first load test. Reference: `node-http-v04-bun-serve`
+≥ 4500 VUs / 2324 req/s. Levels above ≈ 4500 VUs need an 8 vCPU load generator (new `LOADGEN_LABEL`).
 
 ### Phase 3 — Python
 FastAPI + uvicorn + asyncpg (baseline: 1 worker), then gunicorn worker count, uvloop, orjson; optionally Django/DRF
@@ -374,7 +382,11 @@ for a "batteries included" data point.
 ### Phase 5 — Rust
 axum + tokio + `sqlx` or `tokio-postgres` + deadpool; release build with LTO; then tuning.
 
-### Phase 6 — Others and cross-stack
+### Phase 6 — C++
+To be chosen when Rust is done (e.g. Drogon with its async Postgres client, or a minimal server on Boost.Beast +
+libpq / libpqxx); release build, same contract and cache.
+
+### Phase 7 — Others and cross-stack
 Bun/Hono, Java (Spring Boot vs. Quarkus native — interesting under 1 GB), .NET minimal APIs, Elixir/Phoenix,
 PHP (FrankenPHP/Laravel Octane). Cross-stack experiments: Postgres over Unix socket, kernel tuning, swap sizes,
 HTTP/1.1 keep-alive behaviour.

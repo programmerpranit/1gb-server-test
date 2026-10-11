@@ -1,0 +1,46 @@
+{
+  "tag": "node-http-v04-bun-serve",
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  },
+  "capacity_vus": 4500,
+  "first_fail_vus": null,
+  "levels_tested": [
+    {
+      "vus": 4500,
+      "pass": true,
+      "fail_reasons": []
+    }
+  ],
+  "at_capacity": {
+    "steady_rps": 2324.2,
+    "steady_rpm": 139452.0,
+    "steady_latency_ms": {
+      "avg": 74.05715877591452,
+      "med": 14.8384795,
+      "p(90)": 174.39314210000032,
+      "p(95)": 319.18420969999994,
+      "p(99)": 911.5010713999997,
+      "max": 1484.700615
+    },
+    "error_rate_pct": 0,
+    "server": {
+      "app_pss_mb_peak": 59.0,
+      "pg_pss_mb_peak": 133.0,
+      "mem_used_mb_peak": 464.0,
+      "mem_avail_mb_min": 497.0,
+      "swap_used_mb_peak": 0.0,
+      "cpu_total_pct_avg_steady": 94.06333333333332,
+      "cpu_steal_pct_avg_steady": 0.18333333333333332,
+      "app_cpu_pct_avg_steady": 40.67333333333335,
+      "pg_cpu_pct_avg_steady": 44.63166666666668,
+      "app_conns_peak": 4500.0,
+      "load1_peak": 2.3,
+      "proxy_cpu_pct_avg_steady": 0.0,
+      "proxy_pss_mb_peak": 0.0
+    }
+  }
+}
