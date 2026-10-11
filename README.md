@@ -23,6 +23,7 @@ the highest passing VU level tested; this table is updated automatically. Every 
 | node-express-v04-cte-writes | node-express | single-statement writes (CTE) instead of BEGIN/queries/COMMIT; parent v02 (pool 10) | 1400 | 1500 | 660.5 | 39631 | 192.8 | 787.7 | 990.5 | 0 | 486 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v04-cte-writes) |
 | node-express-v05-prepared | node-express | prepared statements (pg named queries); parent v04 | 1400 | 1500 | 645.1 | 38707 | 319.7 | 675.8 | 801.5 | 0 | 493 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v05-prepared) |
 | node-express-v06-feed-cache-1s | node-express | in-process cache of GET /posts (all pages, key limit+before, TTL 1 s, single-flight); parent v05 | 3000 | 3200 | 1541.0 | 92462 | 29.4 | 573.0 | 854.6 | 0 | 541 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-express-v06-feed-cache-1s) |
+| node-http-v01-express-v06-port | node-http | port of node-express v06 to plain node:http (no Express, no ETag); same pool, prepared statements, CTE writes, 1 s feed cache | 3200 | 3500 | 1677.6 | 100656 | 10.9 | 392.4 | 835.3 | 0 | 523 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v01-express-v06-port) |
 <!-- CAPACITY:END -->
 
 ## Findings
@@ -55,6 +56,10 @@ One analysis summary per tag; the full report (summary, configuration, results, 
   v05; labelled trade-off: global feed up to 1 s stale. **Capacity 3000 VUs / 1541 req/s** (2.4× v05); 3200 fails on
   p99 (1604 req/s). 99.6 % feed hits; CPU per request 0.97 vs. 1.67 ms at 1000 VUs. Still CPU-bound, now Node ≈ 60 % /
   Postgres ≈ 30 %; overload is pool wait again, 0 % errors. [Report](results/node-express-v06-feed-cache-1s/config.md)
+- **node-http-v01-express-v06-port** — new stack: node-express v06 on plain `node:http` (no Express, no ETag), same
+  pool, queries and 1 s feed cache. **Capacity 3200 VUs / 1678 req/s**; 3500 fails on p99 (1175 ms, 1779 req/s).
+  +7 % VUs / +9 % req/s vs. Express v06; Node : Postgres CPU 1.55 vs. 1.93 (≈ 20 % less Node work per request), part
+  of the req/s gain is a ≈ 12 % faster host. CPU-bound, 0 % errors. [Report](results/node-http-v01-express-v06-port/config.md)
 
 _Protocol-v1 results (MacBook load source) were dropped on 2026-10-10; see git history up to commit `e10904b`._
 
@@ -62,26 +67,28 @@ _Protocol-v1 results (MacBook load source) were dropped on 2026-10-10; see git h
 
 Updated after every test. The plan with all candidates is in [CLAUDE.md](CLAUDE.md#plan).
 
-**Where node-express stands:** best configuration `node-express-v06-feed-cache-1s` (pool 10, single-statement
-writes, prepared statements, 1 s in-process cache of the global feed): 3000 VUs / 1541 req/s, first fail 3200 VUs.
-It is CPU-bound with Node ≈ 60 % / Postgres ≈ 30 % of the vCPU at saturation; Node is now the larger cost. The
-cache is a labelled trade-off (global feed up to 1 s stale); v05 (1400 VUs / 645 req/s) is the best uncached result.
+**Where Node stands:** best configuration `node-http-v01-express-v06-port` (plain `node:http`, pool 10, prepared
+statements, single-statement writes, 1 s in-process cache of the global feed): **3200 VUs / 1678 req/s**, first fail
+3500 VUs. Best on Express: `node-express-v06-feed-cache-1s`, 3000 VUs / 1541 req/s. Best without a cache:
+`node-express-v05-prepared`, 1400 VUs / 645 req/s. CPU-bound: at the edge Node ≈ 52 % / Postgres ≈ 35 % of the vCPU.
 
-**Measurement caveat:** the droplet's shared vCPU speed varies ±20–30 % (one run was ≈ 30 % faster throughout, with
-no steal). Single runs at saturation therefore swing ±60 req/s (more at v06's higher throughput). Every run records a
-host-speed probe before and after k6 and the CPU cost per request; compare tags at an unsaturated level (1000 VUs)
-plus the edge levels. From 2000 VUs the load generator peaks at ≈ 97 % CPU in single samples; watch it.
+**Tried and not released** (node-express, parent v06): feed-cache TTL 5 s (no gain: hits were already 99.6 %);
+nginx as plain reverse proxy (−28 % req/s, nginx 15 % CPU); nginx `proxy_cache` for the feed instead of the app
+cache (−4 % req/s, FAIL at 3000 VUs: nginx's 17 % CPU cancels the Node work it saves). On 1 vCPU a proxy costs about
+as much as it saves. Script support for an optional `apps/<stack>/nginx.conf` stays.
 
-1. **`node-express-v07-feed-cache-5s`** (parent v06): TTL 1 s → 5 s (user's plan). Hits are already 99.6 %, so expect
-   a small gain: fewer refresh queries and 5× rarer refresh stalls (cached feed requests wait ≈ 200 ms p95 at 3000
-   VUs while a refresh waits for the pool).
-2. **Fastify instead of Express**: Node is ≈ 2/3 of the CPU at the new ceiling; Express + router were ≈ 24 % of
-   Node's JS time in the v05 profile, `res.json` ≈ 10 %.
-3. **Stale-while-revalidate for the feed cache** (serve the old body while one request refreshes): removes the
-   refresh stalls without more staleness than the TTL.
-4. Smaller items: ETag off (sha1 of every body, also on cache hits), `enable_memoize = off` (≈ 10 % of Postgres CPU
-   in feed queries, now mostly cached, so less valuable), Unix socket to Postgres.
-5. Then runtime swaps on the best configuration: Bun, cluster (expected little gain on 1 vCPU); then other stacks.
+**Measurement caveats:** the shared vCPU's speed varies ±20–30 % (probe before/after every run); compare tags by
+the Node : Postgres CPU split or at the same probe values. The 4 vCPU load generator averages ≈ 48 % CPU at
+3200–3500 VUs but spikes to ≈ 90 % every ≈ 6 s: levels above ≈ 3500 VUs need a bigger one.
+
+1. **Bigger load generator** (8 vCPU, new `LOADGEN_LABEL`) before testing past ≈ 3500 VUs; rerun the current best
+   at its edge on it for comparability.
+2. **Bun** (same `node:http` code, or `Bun.serve`): a faster HTTP server and runtime; Node is still ≈ 60 % of the
+   busy CPU. Likely the biggest remaining Node-side lever.
+3. **uWebSockets.js** as the HTTP layer on Node: similar idea, different trade-offs.
+4. **Other stacks** with the same 1 s feed cache: Go (`net/http` + pgx), Rust (axum + tokio-postgres). They also
+   spend less CPU per query in the driver, which is where the Postgres side can still shrink.
+5. Small items (each likely < 5 %, low priority for max VUs): `enable_memoize = off`, Unix socket to Postgres.
 
 Each step is one tag that changes one thing from the best configuration so far. VU levels are chosen per run.
 Profiling: `scripts/profile.sh <vus>` (not an official run) writes perf + V8 reports to `profiles/`.
@@ -439,6 +446,72 @@ pool (v02). Labelled trade-off: the global feed can be up to 1 s stale.
 `node-express-v07-feed-cache-5s` (parent v06): the same cache with TTL 5 s, the only change (user's plan). Compare at
 1000 VUs (CPU per request) and at the edge (3000 / 3200 VUs). Expect a small difference: hits are already 99.6 %, so
 5 s only removes ≈ 2 refresh queries per second and makes the refresh stalls 5× rarer.
+
+### node-http-v01-express-v06-port
+
+[Full report](results/node-http-v01-express-v06-port/config.md) · [Release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v01-express-v06-port)
+
+#### What changed
+
+New stack `apps/node-http/`. Parent: **`node-express-v06-feed-cache-1s`** (different stack). One change: **Express
+removed** — the same app on plain `node:http`. Everything else is a 1:1 port of node-express v06: `pg.Pool` defaults
+(max 10), prepared statements (named queries), single-statement CTE writes, the 1 s in-process cache of `GET /posts`
+(same code), `Server-Timing` on every response. Done by hand instead of by Express: a small router (method + path
+segments, trailing slash ignored), JSON body parsing (JSON content types only, 100 kB limit, like `express.json`),
+JSON responses with `Content-Type: application/json; charset=utf-8` and `Content-Length`. Not carried over (not part
+of the contract): the `ETag` and `X-Powered-By` headers. A parity check on a fresh DB (39 requests: every endpoint,
+400 / 401 / 404, invalid JSON, idempotent like/unlike, FK errors) gave identical status codes, bodies and content types
+for both apps. App code from commit `656bdc8`.
+
+#### Summary
+
+**Capacity: 3200 VUs at 1678 req/s (100,656 req/min)**, steady p50 11 ms / p95 392 ms / p99 835 ms, 0 % errors.
+The first failing level is **3500 VUs**: 1779 req/s, p99 1175 ms (limit 1000), p50 30 ms / p95 471 ms, still
+0 % errors. Express v06 failed 3200 VUs (p99 1641 ms) and passed 3000, so dropping the framework moves the edge by
+one step: **+7 % VUs, +9 % req/s** vs. node-express v06 (3000 VUs / 1541 req/s). The gain is real but modest, and
+part of the req/s difference is host speed.
+
+- **Less Node work per request.** At 3200 VUs Node used 51 % of the CPU and Postgres 33 % (Express v06: 60 % / 31 %).
+  The Node : Postgres ratio fell from 1.93 to 1.55. Postgres runs the same queries in both, so the ratio does not
+  depend on host speed: Node does ≈ 20 % less work per request without Express (router, middleware, `res.json`,
+  ETag sha1).
+- **Host-speed caveat.** The probe read 81 ms before the 3200-VU run vs. 92 ms before Express's (≈ 12 % faster
+  host). CPU per request was 0.55 vs. 0.62 ms (−10 %), which is about the host difference, so CPU per request alone
+  does not prove a gain; the CPU split above does.
+- **The ceiling is still the CPU.** At 3500 VUs the vCPU is 95 % busy on average and at 100 % for long stretches
+  (Node 52 % / Postgres 35 %), steal 0.9 %. Latency past the edge is pool wait again (`conn` p95 360 ms, query time
+  p95 16 ms). Postgres is now ≈ 40 % of the busy CPU, so further app-side savings pay off less and less.
+- **Memory is not a constraint.** Peak 537 MB used, Node ≤ 147 MB PSS, Postgres ≤ 133 MB, no swap, ≥ 424 MB available.
+- **The load generator is close to its limit.** It averaged 48 % CPU at both levels, but spiked to 73–90 % about every
+  6 s (peak 99–100 %). The server's CPU dips do not line up with those spikes, so k6 did not cause the 3500 failure,
+  but levels above ≈ 3500 VUs need a bigger load generator to be trustworthy.
+- **Next:** the remaining big levers are a faster runtime / HTTP server (Bun, uWebSockets.js) and other stacks (Go,
+  Rust). Postgres's ≈ 35 % share is the floor no Node change can remove; caching more of the reads, or a stack that
+  spends less CPU per query in the driver, attacks it.
+
+#### Observations
+
+- At 3200 VUs the CPU was not pinned (92 % average, dips to 82–89 %): the server kept up with the offered load
+  (≈ 1680 req/s from 3200 VUs). At 3500 VUs it was at 100 % for long stretches, so the edge lies between the two.
+- The p99 failure at 3500 VUs is queueing: p50 stays at 30 ms and p95 at 471 ms, only the tail crosses 1 s.
+- `app` time p95 is 3.4 ms at 3200 VUs vs. 120 ms for Express at the same level. Most of that difference is not
+  framework cost: `app` also holds the wait of requests sharing a feed-cache refresh (single-flight), which follows
+  pool wait (`conn` p95 263 vs. 482 ms). At 3500 VUs, with pool wait at 360 ms, `app` p95 is 127 ms again.
+- Time outside the handler (client − server p50) is 9 ms at 3200 VUs and 22 ms at 3500 VUs.
+- The host slowed during the 3500-VU run (probe 83 → 98 ms); the verdict is clear enough (p99 17 % over) not to need
+  a rerun for the capacity number.
+- `app_log_tail.txt` has no errors; feed-cache misses ≈ 25 per 10 s, as in node-express v06.
+- Not released (tested this session on node-express, parent v06): feed-cache TTL 5 s (3200 VUs: FAIL, 1487 req/s,
+  no gain over 1 s), nginx as plain reverse proxy (3000 VUs: FAIL, 1103 req/s, nginx 15 % CPU) and nginx
+  `proxy_cache` for the feed instead of the app cache (3000 VUs: FAIL, 1473 req/s, nginx 17 % CPU). On 1 vCPU a proxy
+  costs about as much CPU as it saves.
+
+#### Next idea
+
+A faster runtime / HTTP layer for the same code: **Bun** (`Bun.serve` or `node:http` on Bun) as `node-http`'s next
+tag, or uWebSockets.js. Before pushing past ≈ 3500 VUs, recreate the load generator with 8 vCPU (new
+`LOADGEN_LABEL`) and rerun the current best at its edge for comparability. Then other stacks (Go, Rust) with the same
+1 s feed cache.
 <!-- ANALYSIS:END -->
 
 ## All runs
@@ -489,6 +562,8 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 | node-express-v06-feed-cache-1s | node-express | 2500 | PASS | 1324.8 | 79488 | 121159 | 12.4 | 112.7 | 192.3 | 435.9 | 496 | 1.4 | 165.6 | 126.6 | 0 | 132 | 116 | 515 | 0 | 91.9 | 0.7 | do-blr1-loadgen-4vcpu-8gb |
 | node-express-v06-feed-cache-1s | node-express | 3000 | PASS | 1541.0 | 92462 | 141899 | 29.4 | 342.6 | 573.0 | 854.6 | 966 | 7.6 | 551.7 | 451.8 | 0 | 156 | 130 | 541 | 0 | 98.0 | 0.4 | do-blr1-loadgen-4vcpu-8gb |
 | node-express-v06-feed-cache-1s | node-express | 3200 | FAIL | 1604.2 | 96250 | 149284 | 42.4 | 388.4 | 725.1 | 1640.9 | 1775 | 19.2 | 709.8 | 481.8 | 0 | 161 | 131 | 548 | 0 | 98.7 | 0.3 | do-blr1-loadgen-4vcpu-8gb |
+| node-http-v01-express-v06-port | node-http | 3200 | PASS | 1677.6 | 100656 | 154434 | 10.9 | 196.9 | 392.4 | 835.3 | 990 | 1.6 | 361.6 | 262.6 | 0 | 144 | 133 | 523 | 0 | 92.4 | 0.6 | do-blr1-loadgen-4vcpu-8gb |
+| node-http-v01-express-v06-port | node-http | 3500 | FAIL | 1778.5 | 106711 | 165366 | 29.5 | 335.9 | 470.8 | 1175.4 | 1303 | 7 | 428.4 | 359.6 | 0 | 147 | 133 | 537 | 0 | 95.4 | 0.9 | do-blr1-loadgen-4vcpu-8gb |
 <!-- RESULTS:END -->
 
 ## Reproducing

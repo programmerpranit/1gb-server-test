@@ -4,7 +4,7 @@ Handoff notes between working sessions: where things stand, what is decided, wha
 it at the end of every session. Rules, protocol and the full plan stay in [CLAUDE.md](CLAUDE.md); numbers and
 per-tag analysis in [README.md](README.md) and `results/<tag>/config.md`.
 
-_Last updated: 2026-10-11, session 2 (v06 released)._
+_Last updated: 2026-10-11, session 2 (node-express v06 and node-http v01 released)._
 
 ## Infrastructure state
 
@@ -13,8 +13,9 @@ _Last updated: 2026-10-11, session 2 (v06 released)._
 | Target droplet `1gb-test` (blr1, $6, 1 vCPU / 1 GB) | **Running, keep it** | Public 143.110.255.234, private 10.122.0.2. Holds the `bench_seed` template DB and the installed app. |
 | Load generator (blr1, 4 vCPU / 8 GB shared, `do-blr1-loadgen-4vcpu-8gb`) | **Running (session 2)**, destroy at end of session | Public 168.144.21.215, private 10.122.0.4. In `.env` as `LOADGEN_HOST`. (A 2 vCPU / 4 GB droplet, 64.227.156.31, was created by mistake and replaced.) |
 
-- App deployed on the target: **node-express v06** (commit `887f64c`: v05 + 1 s in-process cache of `GET /posts`).
-  `bench-app` service active.
+- App deployed on the target: **node-http v01** (commit `656bdc8`: node-express v06 ported to plain `node:http`).
+  `bench-app` service active on :3000. **nginx 1.24 is installed but disabled** (only enabled for apps that ship
+  `nginx.conf`; `/opt/bench/app.override.env` then sets PORT=3001).
 - Postgres 16.15 at defaults; no server-side setting changed (no `enable_memoize` change yet).
 - `/tmp/bench-prof/` on the target held the raw profiling data (perf.data, .cpuprofile); safe to delete.
 
@@ -36,9 +37,14 @@ _Last updated: 2026-10-11, session 2 (v06 released)._
 | node-express-v04-cte-writes | single-statement writes (parent v02) | 1400 rule / ≈ 1300–1400 real | 540–660 | 1500 | no measurable gain; 1300/1350 failed; kept as parent |
 | node-express-v05-prepared | prepared statements (parent v04) | 1400 | 645 | 1500 | PG share ≈ 43.5 %; likely 5–10 % gain, within noise |
 | node-express-v06-feed-cache-1s | 1 s in-process cache of `GET /posts`, all pages (parent v05) | 3000 | 1541 | 3200 | 2.4× v05; 99.6 % hits; Node ≈ 60 % / PG ≈ 30 %; trade-off: feed ≤ 1 s stale |
+| node-http-v01-express-v06-port | v06 on plain `node:http`, no Express (new stack) | 3200 | 1678 | 3500 | +7 % VUs; Node : PG CPU 1.55 vs. 1.93; part of req/s gain is host speed |
 
-All six are released on GitHub (build, results, `report-<tag>.html`). Best configuration: **v06** (cached; best
-uncached: v05).
+All seven are released on GitHub (build, results, `report-<tag>.html`). Best configuration: **node-http v01**
+(cached; best on Express: node-express v06; best uncached: node-express v05).
+
+Tried this session and **not released** (results moved aside, app reverted to v06): feed-cache TTL 5 s (3200 VUs FAIL,
+1487 req/s, no gain), nginx plain proxy (3000 VUs FAIL, 1103 req/s, nginx 15 % CPU), nginx `proxy_cache` for the feed
+(3000 VUs FAIL, 1473 req/s, nginx 17 % CPU). Lesson: on 1 vCPU a proxy costs about what it saves.
 
 ## Key learnings (beyond CLAUDE.md)
 - **The ceiling is CPU** (≈ 600–690 req/s on this vCPU for node-express). Past it, latency is pool wait (`conn`),
@@ -55,18 +61,18 @@ uncached: v05).
 - No hardware perf counters on the droplet (`<not supported>` for instructions/cycles); perf samples cpu-clock.
 
 ## Open decisions / next steps
-1. **v07 `node-express-v07-feed-cache-5s`** (parent v06): only `FEED_CACHE_TTL_MS` 1000 → 5000 in
-   `apps/node-express/src/server.js` (+ header comment "1 s" and `bench.json` change). User's plan. VU levels not
-   chosen yet; suggest the v06 levels (1000 … 3000, 3200) for a direct comparison.
-2. Then: Fastify (Node is ≈ 2/3 of CPU now); stale-while-revalidate for the feed cache (cached feed requests wait
-   ≈ 200 ms p95 at 3000 VUs behind the refresh query's pool wait); ETag off; `enable_memoize = off` (less valuable
-   now: feed queries are mostly cached); then Bun / cluster; then other stacks (Phase 3+).
-3. From 2000 VUs the load generator peaks at ≈ 97 % CPU in single samples (average ≤ 40 %). If v07+ goes past
-   ≈ 3500 VUs, consider a bigger load generator (would need a new `LOADGEN_LABEL`).
+1. **Load generator limit:** at 3200–3500 VUs the 4 vCPU load generator averages ≈ 48 % CPU but spikes to ≈ 90 %
+   every ≈ 6 s. Before testing past ≈ 3500 VUs, recreate it with 8 vCPU (new `LOADGEN_LABEL`, e.g.
+   `do-blr1-loadgen-8vcpu-16gb`) and rerun the current best (node-http v01) at its edge for comparability.
+2. Next experiments, ranked by expected capacity gain (the user only wants big gains, see below): Bun for
+   `apps/node-http` (same code), uWebSockets.js, then Go / Rust stacks with the same 1 s feed cache.
+3. Small items (each likely < 5 %, the user is not interested): `enable_memoize = off`, Unix socket, ETag off.
 4. Maybe later: repeat runs per level (needs run-dir naming like `vus-1500-r2`; today a rerun overwrites the level).
 
 ## Working agreements with the user
 - **The user picks every VU level.** Claude may suggest, never runs levels on its own.
+- **Goal = maximum VUs on the $6 droplet.** Gains of ≈ 4–5 % are not interesting; test only edge levels around the
+  current first fail, not full ladders. Experiments that do not help are reverted and not released (user decision).
 - After every test: write `results/<tag>/config.md` (Summary, What changed, Results, Observations, Next idea), a README
   Findings entry and README **Next steps**, then `scripts/release.sh <tag>` (README "Analysis per configuration" is
   generated from config.md). Release only when the user says so.

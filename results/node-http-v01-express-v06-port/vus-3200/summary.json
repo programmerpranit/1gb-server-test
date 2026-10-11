@@ -1,0 +1,151 @@
+{
+  "tag": "node-http-v01-express-v06-port",
+  "stack": "node-http",
+  "vus": 3200,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791734605,
+  "loadgen": "do-blr1-loadgen-4vcpu-8gb",
+  "loadgen_nofile": "1048576",
+  "git_sha": "656bdc8",
+  "k6_version": "k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)",
+  "date": "2026-10-11T16:05:50Z",
+  "total_requests": 154434,
+  "avg_rps": 1248.846155880892,
+  "steady_requests": 100656,
+  "steady_rps": 1677.6,
+  "steady_rpm": 100656.0,
+  "vus_max": 3200,
+  "iterations": 138017,
+  "error_rate_pct": 0,
+  "steady_error_rate_pct": 0,
+  "latency_ms": {
+    "avg": 48.23426580091747,
+    "med": 7.4648775,
+    "p(90)": 107.66485510000012,
+    "p(95)": 263.7363861000001,
+    "p(99)": 757.531772970004,
+    "max": 989.782032
+  },
+  "steady_latency_ms": {
+    "avg": 67.30237241546351,
+    "med": 10.926336,
+    "p(90)": 196.89126,
+    "p(95)": 392.44353675,
+    "p(99)": 835.34453915,
+    "max": 989.782032
+  },
+  "per_endpoint_p95_ms": {
+    "GET /me/posts": 399.900785,
+    "DELETE /posts/:id/like": 432.57271459999976,
+    "GET /posts/:id": 382.2826497999996,
+    "POST /posts/:id/like": 365.15358050000003,
+    "POST /posts/:id/comments": 365.38956139999976,
+    "GET /users/:id/posts": 373.0661855999996,
+    "GET /posts": 82.93312610000017,
+    "POST /posts": 373.9333817499999
+  },
+  "server_timing_ms": {
+    "total": {
+      "med": 1.6,
+      "p(95)": 361.575,
+      "p(99)": 789.8,
+      "max": 977.1
+    },
+    "conn": {
+      "med": 0,
+      "p(95)": 262.6,
+      "p(99)": 769.7899999999994,
+      "max": 955.5
+    },
+    "db": {
+      "med": 0.8,
+      "p(95)": 14.7,
+      "p(99)": 29.8,
+      "max": 174.8
+    },
+    "app": {
+      "med": 0,
+      "p(95)": 3.4,
+      "p(99)": 368.3449999999939,
+      "max": 839.8
+    }
+  },
+  "server_total_p95_by_endpoint_ms": {
+    "GET /posts": 49.4,
+    "GET /users/:id/posts": 344.5449999999972,
+    "POST /posts/:id/comments": 340.59,
+    "GET /me/posts": 362.75,
+    "DELETE /posts/:id/like": 403.3949999999996,
+    "POST /posts": 351.0199999999997,
+    "GET /posts/:id": 354.0199999999997,
+    "POST /posts/:id/like": 338.425
+  },
+  "server_timing_missing": 0,
+  "bench": {
+    "language": "JavaScript",
+    "runtime": "node",
+    "framework": "node:http (no framework)",
+    "db": "postgres",
+    "db_driver": "pg 8.23.1",
+    "db_pool": "pg.Pool defaults (max 10)",
+    "workers": 1,
+    "change": "port of node-express v06 to plain node:http (no Express, no ETag); same pool, prepared statements, CTE writes, 1 s feed cache"
+  },
+  "server_env": {
+    "app": "node-http",
+    "kernel": "6.8.0-142-generic",
+    "os": "Ubuntu 24.04.5 LTS",
+    "nproc": "1",
+    "mem_total_mb": "961",
+    "node": "v24.21.0",
+    "python": "3.12.3",
+    "go": "",
+    "postgres": "16.15",
+    "proxy": "none",
+    "swap_mb": "0",
+    "shared_buffers": "128MB",
+    "max_connections": "100",
+    "mem_avail_mb_idle": "634",
+    "cpu_probe_before_ms": "80.8",
+    "cpu_probe_after_ms": "90.7"
+  },
+  "outside_ms": {
+    "med": 9.326336,
+    "p(95)": 30.868536750000032
+  },
+  "server": {
+    "app_pss_mb_peak": 144.0,
+    "pg_pss_mb_peak": 133.0,
+    "mem_used_mb_peak": 523.0,
+    "mem_avail_mb_min": 438.0,
+    "swap_used_mb_peak": 0.0,
+    "cpu_total_pct_avg_steady": 92.41833333333331,
+    "cpu_steal_pct_avg_steady": 0.5833333333333334,
+    "app_cpu_pct_avg_steady": 51.025,
+    "pg_cpu_pct_avg_steady": 32.93666666666666,
+    "app_conns_peak": 3200.0,
+    "load1_peak": 2.03,
+    "proxy_cpu_pct_avg_steady": 0.0,
+    "proxy_pss_mb_peak": 0.0
+  },
+  "loadgen_stats": {
+    "lg_cpu_pct_avg_steady": 47.54166666666666,
+    "lg_cpu_pct_peak": 99.0,
+    "k6_rss_mb_peak": 1725.0,
+    "lg_mem_used_mb_peak": 2165.0
+  },
+  "cpu_ms_per_req_steady": 0.5508961214433316,
+  "cpu_probe_ms": {
+    "before": "80.8",
+    "after": "90.7"
+  },
+  "pass": true,
+  "fail_reasons": [],
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  }
+}

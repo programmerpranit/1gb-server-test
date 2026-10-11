@@ -1,0 +1,153 @@
+{
+  "tag": "node-http-v01-express-v06-port",
+  "stack": "node-http",
+  "vus": 3500,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791734887,
+  "loadgen": "do-blr1-loadgen-4vcpu-8gb",
+  "loadgen_nofile": "1048576",
+  "git_sha": "656bdc8",
+  "k6_version": "k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)",
+  "date": "2026-10-11T16:10:31Z",
+  "total_requests": 165366,
+  "avg_rps": 1340.8727693167682,
+  "steady_requests": 106711,
+  "steady_rps": 1778.5166666666667,
+  "steady_rpm": 106711.0,
+  "vus_max": 3500,
+  "iterations": 147680,
+  "error_rate_pct": 0,
+  "steady_error_rate_pct": 0,
+  "latency_ms": {
+    "avg": 88.03495457897075,
+    "med": 12.311337,
+    "p(90)": 278.532598,
+    "p(95)": 368.35908524999996,
+    "p(99)": 1086.299310500002,
+    "max": 1302.527852
+  },
+  "steady_latency_ms": {
+    "avg": 127.09561124710717,
+    "med": 29.513681,
+    "p(90)": 335.929517,
+    "p(95)": 470.837732,
+    "p(99)": 1175.4313806999996,
+    "max": 1302.527852
+  },
+  "per_endpoint_p95_ms": {
+    "POST /posts/:id/like": 414.84839604999974,
+    "POST /posts/:id/comments": 422.080825,
+    "GET /posts/:id": 420.2831553,
+    "GET /posts": 228.5306052999997,
+    "GET /users/:id/posts": 414.5851667999999,
+    "POST /posts": 414.496125,
+    "DELETE /posts/:id/like": 476.30386425,
+    "GET /me/posts": 417.46820379999986
+  },
+  "server_timing_ms": {
+    "total": {
+      "med": 7,
+      "p(95)": 428.4,
+      "p(99)": 1149.9899999999993,
+      "max": 1274.5
+    },
+    "conn": {
+      "med": 0,
+      "p(95)": 359.6,
+      "p(99)": 1136.449999999997,
+      "max": 1247.9
+    },
+    "db": {
+      "med": 1.4,
+      "p(95)": 16.2,
+      "p(99)": 30.5,
+      "max": 156.1
+    },
+    "app": {
+      "med": 0.1,
+      "p(95)": 127.1,
+      "p(99)": 539.0899999999995,
+      "max": 1173.9
+    }
+  },
+  "server_total_p95_by_endpoint_ms": {
+    "GET /posts/:id": 405.6649999999998,
+    "GET /posts": 198.20999999999913,
+    "POST /posts": 400.45,
+    "GET /me/posts": 402.6949999999999,
+    "DELETE /posts/:id/like": 447.35,
+    "GET /users/:id/posts": 398.6,
+    "POST /posts/:id/comments": 403.54999999999995,
+    "POST /posts/:id/like": 400.56499999999977
+  },
+  "server_timing_missing": 0,
+  "bench": {
+    "language": "JavaScript",
+    "runtime": "node",
+    "framework": "node:http (no framework)",
+    "db": "postgres",
+    "db_driver": "pg 8.23.1",
+    "db_pool": "pg.Pool defaults (max 10)",
+    "workers": 1,
+    "change": "port of node-express v06 to plain node:http (no Express, no ETag); same pool, prepared statements, CTE writes, 1 s feed cache"
+  },
+  "server_env": {
+    "app": "node-http",
+    "kernel": "6.8.0-142-generic",
+    "os": "Ubuntu 24.04.5 LTS",
+    "nproc": "1",
+    "mem_total_mb": "961",
+    "node": "v24.21.0",
+    "python": "3.12.3",
+    "go": "",
+    "postgres": "16.15",
+    "proxy": "none",
+    "swap_mb": "0",
+    "shared_buffers": "128MB",
+    "max_connections": "100",
+    "mem_avail_mb_idle": "637",
+    "cpu_probe_before_ms": "82.9",
+    "cpu_probe_after_ms": "98.4"
+  },
+  "outside_ms": {
+    "med": 22.513681,
+    "p(95)": 42.43773200000004
+  },
+  "server": {
+    "app_pss_mb_peak": 147.0,
+    "pg_pss_mb_peak": 133.0,
+    "mem_used_mb_peak": 537.0,
+    "mem_avail_mb_min": 424.0,
+    "swap_used_mb_peak": 0.0,
+    "cpu_total_pct_avg_steady": 95.40166666666667,
+    "cpu_steal_pct_avg_steady": 0.895,
+    "app_cpu_pct_avg_steady": 51.98333333333333,
+    "pg_cpu_pct_avg_steady": 35.10166666666667,
+    "app_conns_peak": 3500.0,
+    "load1_peak": 1.81,
+    "proxy_cpu_pct_avg_steady": 0.0,
+    "proxy_pss_mb_peak": 0.0
+  },
+  "loadgen_stats": {
+    "lg_cpu_pct_avg_steady": 48.25166666666667,
+    "lg_cpu_pct_peak": 99.5,
+    "k6_rss_mb_peak": 1923.0,
+    "lg_mem_used_mb_peak": 2365.0
+  },
+  "cpu_ms_per_req_steady": 0.536411428999822,
+  "cpu_probe_ms": {
+    "before": "82.9",
+    "after": "98.4"
+  },
+  "pass": false,
+  "fail_reasons": [
+    "p99 1175>=1000ms"
+  ],
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  }
+}

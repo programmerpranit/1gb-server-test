@@ -1,0 +1,53 @@
+{
+  "tag": "node-http-v01-express-v06-port",
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  },
+  "capacity_vus": 3200,
+  "first_fail_vus": 3500,
+  "levels_tested": [
+    {
+      "vus": 3200,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "vus": 3500,
+      "pass": false,
+      "fail_reasons": [
+        "p99 1175>=1000ms"
+      ]
+    }
+  ],
+  "at_capacity": {
+    "steady_rps": 1677.6,
+    "steady_rpm": 100656.0,
+    "steady_latency_ms": {
+      "avg": 67.30237241546351,
+      "med": 10.926336,
+      "p(90)": 196.89126,
+      "p(95)": 392.44353675,
+      "p(99)": 835.34453915,
+      "max": 989.782032
+    },
+    "error_rate_pct": 0,
+    "server": {
+      "app_pss_mb_peak": 144.0,
+      "pg_pss_mb_peak": 133.0,
+      "mem_used_mb_peak": 523.0,
+      "mem_avail_mb_min": 438.0,
+      "swap_used_mb_peak": 0.0,
+      "cpu_total_pct_avg_steady": 92.41833333333331,
+      "cpu_steal_pct_avg_steady": 0.5833333333333334,
+      "app_cpu_pct_avg_steady": 51.025,
+      "pg_cpu_pct_avg_steady": 32.93666666666666,
+      "app_conns_peak": 3200.0,
+      "load1_peak": 2.03,
+      "proxy_cpu_pct_avg_steady": 0.0,
+      "proxy_pss_mb_peak": 0.0
+    }
+  }
+}

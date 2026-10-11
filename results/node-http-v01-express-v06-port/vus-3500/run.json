@@ -1,0 +1,13 @@
+{
+  "tag": "node-http-v01-express-v06-port",
+  "stack": "node-http",
+  "vus": 3500,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791734887,
+  "loadgen": "do-blr1-loadgen-4vcpu-8gb",
+  "loadgen_nofile": "1048576",
+  "git_sha": "656bdc8",
+  "k6_version": "k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)",
+  "date": "2026-10-11T16:10:31Z"
+}

@@ -336,9 +336,18 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
       Capacity 3000 VUs / 1541 req/s (2.4× v05), first fail 3200; 99.6 % hits; CPU/req 0.97 vs. 1.67 ms at 1000 VUs.
       Still CPU-bound, now Node ≈ 60 % / PG ≈ 30 %. At saturation cached feed requests wait ≈ 200 ms p95 behind the
       refresh query's pool wait (stale-while-revalidate would fix it).
-- [ ] **`node-express-v07-feed-cache-5s`** (parent v06) — same cache, TTL 5 s.
+- [x] `feed-cache-5s` (parent v06), **not released**: 3200 VUs FAIL, 1487 req/s; hits already 99.6 %, no gain.
+- [x] nginx (parent v06), **not released**: plain proxy 3000 VUs FAIL, 1103 req/s (nginx 15 % CPU); `proxy_cache` for the
+      feed instead of the app cache 3000 VUs FAIL, 1473 req/s (nginx 17 % CPU). On 1 vCPU a proxy costs what it saves.
+      Scripts keep optional `apps/<stack>/nginx.conf` support (app moves to :3001; sampler records nginx CPU/PSS).
 - [ ] `enable_memoize = off` (moved down: the cache removes most feed queries, where Memoize cost was).
 - VU levels are chosen by the user for every run.
+
+### Phase 1b — plain Node.js `node:http` (`apps/node-http/`)
+- [x] **`node-http-v01-express-v06-port`** (parent node-express v06) — Express removed, otherwise a 1:1 port (same
+      pool, prepared statements, CTE writes, 1 s feed cache; no ETag). Parity check: 39 requests identical. Capacity
+      3200 VUs / 1678 req/s, first fail 3500 (p99 1175 ms); Node : PG CPU 1.55 vs. 1.93 for Express.
+- [ ] Next: bigger load generator before > 3500 VUs; then Bun / uWebSockets.js; then Go / Rust.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
 Candidates, roughly in order: pool size (5 / 20 / 50); `pg-native` or prepared statements; Postgres tuning
