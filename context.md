@@ -63,8 +63,8 @@ Tried this session and **not released** (results moved aside, app reverted to v0
 - No hardware perf counters on the droplet (`<not supported>` for instructions/cycles); perf samples cpu-clock.
 
 ## Open decisions / next steps
-1. **In progress:** `node-http-v03-pool-20` (parent v02): `pg.Pool` max 10 → 20 on Bun, run at 4500 VUs (user's
-   request). Node's pool-20 test (node-express v03) was worse.
+1. Done, **not released**: pool 20 on Bun at 4500 VUs — 2104 req/s (same as pool 10), query time 2×, p99 1404 vs.
+   1045 ms. Reverted to pool 10 (deployed: node-http v02).
 2. Next, ranked by expected capacity gain: `Bun.sql` (native Postgres client) / `Bun.serve`; Go / Rust stacks with the
    same 1 s feed cache.
 3. **Load generator limit:** 4 vCPU k6 averages ≈ 50 % at 4000–4500 VUs and spikes to ≈ 100 % every ≈ 6 s; so far the

@@ -81,20 +81,19 @@ Express: `node-express-v06-feed-cache-1s`, 3000 VUs / 1541 req/s. Without a cach
 **Tried and not released** (node-express, parent v06): feed-cache TTL 5 s (no gain: hits were already 99.6 %);
 nginx as plain reverse proxy (−28 % req/s, nginx 15 % CPU); nginx `proxy_cache` for the feed instead of the app
 cache (−4 % req/s, FAIL at 3000 VUs: nginx's 17 % CPU cancels the Node work it saves). On 1 vCPU a proxy costs about
-as much as it saves. Script support for an optional `apps/<stack>/nginx.conf` stays.
+as much as it saves. Script support for an optional `apps/<stack>/nginx.conf` stays. Pool 20 on Bun (4500 VUs:
+2104 req/s, same as pool 10, but query time 2× and p99 1404 vs. 1045 ms): the CPU is the ceiling, not the pool.
 
 **Measurement caveats:** the shared vCPU's speed varies ±20–30 % (probe before/after every run); compare tags by
 the Node : Postgres CPU split or at the same probe values. The 4 vCPU load generator averages ≈ 48 % CPU at
 3200–3500 VUs but spikes to ≈ 90 % every ≈ 6 s: levels above ≈ 3500 VUs need a bigger one.
 
-1. **`node-http-v03-pool-20`** (user's request): `pg.Pool` max 10 → 20 on Bun, at 4500 VUs. On Node (node-express
-   v03) pool 20 was worse (query contention on 1 vCPU); worth checking with Bun's lower app overhead.
-2. **Bun-native APIs**: `Bun.sql` (native Postgres client) instead of `pg`, and/or `Bun.serve` instead of `node:http`.
+1. **Bun-native APIs**: `Bun.sql` (native Postgres client) instead of `pg`, and/or `Bun.serve` instead of `node:http`.
    The driver's share of the app's CPU was ≈ 19 % of Node's JS time in the v05 profile.
-3. **Bigger load generator** (8 vCPU, new `LOADGEN_LABEL`) before testing well past ≈ 4500 VUs; rerun the current best
+2. **Bigger load generator** (8 vCPU, new `LOADGEN_LABEL`) before testing well past ≈ 4500 VUs; rerun the current best
    at its edge on it for comparability. k6 already spikes to ≈ 100 % every ≈ 6 s.
-4. **Other stacks** with the same 1 s feed cache: Go (`net/http` + pgx), Rust (axum + tokio-postgres).
-5. Small items (each likely < 5 %, low priority for max VUs): `enable_memoize = off`, Unix socket to Postgres.
+3. **Other stacks** with the same 1 s feed cache: Go (`net/http` + pgx), Rust (axum + tokio-postgres).
+4. Small items (each likely < 5 %, low priority for max VUs): `enable_memoize = off`, Unix socket to Postgres.
 
 Each step is one tag that changes one thing from the best configuration so far. VU levels are chosen per run.
 Profiling: `scripts/profile.sh <vus>` (not an official run) writes perf + V8 reports to `profiles/`.

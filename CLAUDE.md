@@ -349,7 +349,8 @@ commit `e10904b`. Kept learnings from that round (MacBook load, ~40 ms RTT):
       3200 VUs / 1678 req/s, first fail 3500 (p99 1175 ms); Node : PG CPU 1.55 vs. 1.93 for Express.
 - [x] **`node-http-v02-bun`** (parent v01) — runtime Node 24 → Bun 1.4.2, same code. Capacity 4000 VUs / 2082 req/s,
       first fail 4500 (CPU 100 %, ceiling ≈ 2100 req/s); app : PG CPU 1.28 vs. 1.48 on Node.
-- [ ] **`node-http-v03-pool-20`** (parent v02) — pool max 10 → 20 on Bun, at 4500 VUs (user's request).
+- [x] `pool-20` on Bun (parent v02), **not released**: 4500 VUs FAIL, 2104 req/s (= pool 10), query time 2×, p99
+      1404 vs. 1045 ms. The CPU is the ceiling, not the pool; keep pool 10.
 - [ ] Then: `Bun.sql` / `Bun.serve`; bigger load generator before ≫ 4500 VUs; Go / Rust.
 
 ### Phase 2 — Node.js optimisations (one per tag, keep what helps)
