@@ -68,9 +68,9 @@ Tried this session and **not released** (results moved aside, app reverted to v0
 1. **Node/Bun phase is closed** (user, 2026-10-11) at `node-http-v04-bun-serve`: ≥ 4500 VUs / 2324 req/s.
 2. **Next, in the user's order: Python → Go → Rust → C++.** Each new stack (`apps/<stack>/`, tags `<stack>-v01-...`)
    starts as a port of the best Node/Bun logic: same API, CTE writes, prepared statements, pool 10, 1 s in-process
-   feed cache (single-flight), `Server-Timing`. Run the parity check first: the request list is in
-   `scripts/parity` style (see session-2 scratch `parity.sh`: 39 curl calls, compare status + body + content type
-   against node-http on a freshly reset DB). Python first: FastAPI + uvicorn + asyncpg, 1 worker; runtime install goes
+   feed cache (single-flight), `Server-Timing`. Run the parity check first: `scripts/parity.sh > out.txt`
+   (resets the DB, runs 39 requests) and `diff` against `results/parity/node-http-reference.txt` (only line 1, the
+   app name, may differ). Python first: FastAPI + uvicorn + asyncpg, 1 worker; runtime install goes
    into `scripts/server/setup.sh` (idempotent).
 3. **Load generator:** 4 vCPU k6 averages ≈ 58 % at 4500 VUs with 100 % peaks. Before any stack goes past ≈ 4500 VUs,
    recreate it with 8 vCPU (new `LOADGEN_LABEL`) and rerun node-http v04 at its edge.

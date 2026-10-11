@@ -93,6 +93,8 @@ scripts/
   run_test.sh <tag> <vus..>   run one configuration at the given VU levels (--search: ladder + bisection)
   summarize.py <run_dir>      k6 + server metrics -> pass/fail, summary, README row, results.csv row
   release.sh <tag>            commit results, git tag, GitHub release with build + results
+  parity.sh                   contract parity check of the deployed app (39 requests, fresh DB) -> stdout; diff it
+                              against results/parity/node-http-reference.txt before a new stack's first load test
   release.sh --update <tag>   after adding VU levels to a released tag: push results, refresh release assets/notes
   report_html.py <tag_dir>    results/<tag>/report.html: summary, levels table, charts (k6 2-s snapshots decoded
                               from k6_report.html, server + load-gen samples); run by release.sh, attached to the release
@@ -368,8 +370,9 @@ Bun runtime; uWebSockets.js / Hono.
 ### Cross-stack baseline (decided 2026-10-11)
 Order: **Python → Go → Rust → C++**. Each new stack starts as a port of the best Node/Bun logic so results compare
 directly: same API, single-statement CTE writes, prepared statements, DB pool max 10, the **1 s in-process cache of
-`GET /posts`** (single-flight, all pages), `Server-Timing`. Run the 39-request parity check (`parity.sh`-style:
-status + body + content type vs. node-http) before the first load test. Reference: `node-http-v04-bun-serve`
+`GET /posts`** (single-flight, all pages), `Server-Timing`. Run the parity check before the first load test:
+`scripts/parity.sh > out.txt` (fresh DB, 39 requests: status + body + content type) and `diff` it against
+`results/parity/node-http-reference.txt` (only line 1, the app name, may differ). Reference: `node-http-v04-bun-serve`
 ≥ 4500 VUs / 2324 req/s. Levels above ≈ 4500 VUs need an 8 vCPU load generator (new `LOADGEN_LABEL`).
 
 ### Phase 3 — Python
