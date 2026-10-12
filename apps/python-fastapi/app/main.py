@@ -1,12 +1,12 @@
 # Implementation of the protocol v2 API (see CLAUDE.md "API contract") with FastAPI on uvicorn.
-# Deliberately plain, like node-express v01: one process, NO connection pool (every request opens its own asyncpg
-# connection and closes it before the response is sent), no cache. Writes that touch two tables (like + counter,
-# comment + counter) are ONE statement with data-modifying CTEs, as in every other stack. asyncpg always uses the
-# extended protocol: each query is prepared on its (fresh) connection before it runs.
+# Deliberately plain, like node-express v02: one process, an asyncpg pool with default settings except max_size
+# (min 10, max 10; every request acquires one connection for all its queries and releases it when done), no cache.
+# Writes that touch two tables (like + counter, comment + counter) are ONE statement with data-modifying CTEs, as in
+# every other stack. asyncpg prepares every query and caches the prepared statement per pooled connection.
 # Idiomatic FastAPI: route decorators, handlers return dicts (FastAPI encodes them with jsonable_encoder + json).
 # Path/query/body parsing is done by hand so status codes and error messages match the other stacks exactly
 # (FastAPI's own validation would answer 422 with a different body). /docs and /openapi.json are off.
-# Every response carries a Server-Timing header: conn (connect + close), db (queries), app (the rest), total.
+# Every response carries a Server-Timing header: conn (pool acquire + release), db (queries), app (the rest), total.
 
 import json
 import os
@@ -205,8 +205,22 @@ class ServerTiming:
 
 
 # --- Database access -----------------------------------------------------------------------------------------------
-# One fresh connection per request, closed before the response is sent. The handler gets a wrapper whose fetch()
-# adds each query's duration to timing.db; connect + auth and close time go to timing.conn.
+# One pooled connection per request, released before the response is sent. The handler gets a wrapper whose fetch()
+# adds each query's duration to timing.db; time waiting for a free connection, and the release (asyncpg's pool runs
+# its reset query, one round trip, before the connection can be reused), go to timing.conn.
+pool = None
+
+
+@asynccontextmanager
+async def lifespan(app):
+    global pool
+    pool = await asyncpg.create_pool(DATABASE_URL, min_size=10, max_size=10)
+    try:
+        yield
+    finally:
+        await pool.close()
+
+
 class Db:
     __slots__ = ("conn", "timing")
 
@@ -227,22 +241,19 @@ async def connection(request):
     timing = request.scope["timing"]
     start = now_ms()
     try:
-        conn = await asyncpg.connect(DATABASE_URL)
+        conn = await pool.acquire()
     finally:
         timing.conn += now_ms() - start
     try:
         yield Db(conn, timing)
     finally:
         start = now_ms()
-        try:
-            await conn.close()
-        except Exception:
-            pass
+        await pool.release(conn)
         timing.conn += now_ms() - start
 
 
 # --- App -----------------------------------------------------------------------------------------------------------
-app = FastAPI(default_response_class=JSON, docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(default_response_class=JSON, docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 app.add_middleware(ServerTiming)
 
 

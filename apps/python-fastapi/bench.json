@@ -4,7 +4,7 @@
   "framework": "FastAPI 0.143.0 + uvicorn 0.54.0 (asyncio loop, h11)",
   "db": "postgres",
   "db_driver": "asyncpg 0.32.0",
-  "db_pool": "none (new connection per request)",
+  "db_pool": "asyncpg pool min 10 / max 10",
   "workers": 1,
-  "change": "new stack: FastAPI baseline, no pool, no feed cache (like node-express v01)"
+  "change": "asyncpg pool (max 10) instead of a new connection per request; parent v01"
 }
