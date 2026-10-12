@@ -4,17 +4,19 @@ Handoff notes between working sessions: where things stand, what is decided, wha
 it at the end of every session. Rules, protocol and the full plan stay in [CLAUDE.md](CLAUDE.md); numbers and
 per-tag analysis in [README.md](README.md) and `results/<tag>/config.md`.
 
-_Last updated: 2026-10-11, end of session 2 (Node/Bun phase closed at node-http v04)._
+_Last updated: 2026-10-12, end of session 3 (Python phase started: python-fastapi v01, v02 released; v03 built, not tested)._
 
 ## Infrastructure state
 
 | Machine | State | Notes |
 |---|---|---|
 | Target droplet `1gb-test` (blr1, $6, 1 vCPU / 1 GB) | **Running, keep it** | Public 143.110.255.234, private 10.122.0.2. Holds the `bench_seed` template DB and the installed app. |
-| Load generator (blr1, 4 vCPU / 8 GB shared, `do-blr1-loadgen-4vcpu-8gb`) | **Running (session 2)**, destroy at end of session | Public 168.144.21.215, private 10.122.0.4. In `.env` as `LOADGEN_HOST`. (A 2 vCPU / 4 GB droplet, 64.227.156.31, was created by mistake and replaced.) |
+| Load generator (blr1, 4 vCPU / 8 GB shared, `do-blr1-loadgen-4vcpu-8gb`) | **Running (session 3)**, destroy at end of session | Public 168.144.69.110, private 10.122.0.3. In `.env` as `LOADGEN_HOST`. Recreated each session. |
 
-- App deployed on the target: **node-http v04** (commit `d4b36f2`: Bun 1.4.2 + Bun.serve + Bun.sql). Bun is installed
-  as `/usr/local/bin/bun` (pinned in `setup.sh`).
+- App deployed on the target: **python-fastapi v03** (commit `8954d39`: FastAPI + plain uvicorn + asyncpg pool 10 +
+  1 s feed cache), parity-checked, **not load-tested yet**. Python: system CPython 3.12.3 + `python3-venv` (in
+  `setup.sh`); the app's venv is `/opt/bench/app/.venv` (built by `apps/python-fastapi/build.sh`). Bun 1.4.2 is
+  installed as `/usr/local/bin/bun` (pinned in `setup.sh`).
   `bench-app` service active on :3000. **nginx 1.24 is installed but disabled** (only enabled for apps that ship
   `nginx.conf`; `/opt/bench/app.override.env` then sets PORT=3001).
 - Postgres 16.15 at defaults; no server-side setting changed (no `enable_memoize` change yet).
@@ -26,7 +28,10 @@ _Last updated: 2026-10-11, end of session 2 (Node/Bun phase closed at node-http 
    otherwise a new label — rows are only comparable with the same label).
 2. `scripts/provision_loadgen.sh` (≈ 1 min: pinned k6 v2.3.0, limits, sysctls; checks it reaches the target).
 3. Optional live dashboard: `scripts/dashboard.sh` (tunnel to http://localhost:5665; refresh when a level starts).
-4. Check the deployed app matches the tag about to be tested (`scripts/deploy.sh node-express` after committing).
+4. Check the deployed app matches the tag about to be tested (`scripts/deploy.sh python-fastapi` after committing;
+   v03 is already deployed — redeploy only if the target was rebuilt).
+5. **First test of the next session: `scripts/run_test.sh python-fastapi-v03-feed-cache-1s <vus>`** at levels the
+   user picks (Claude suggested 1000 and 1200; v02 capacity 600, ≈ 47 % of requests are feed reads).
 
 ## Results so far (protocol v2, all from the blr1 load generator)
 
@@ -42,8 +47,12 @@ _Last updated: 2026-10-11, end of session 2 (Node/Bun phase closed at node-http 
 | node-http-v02-bun | runtime Node → Bun 1.4.2, same code | 4200 | 2078 | 4500 | +25 % VUs; ceiling ≈ 2100 req/s (CPU 100 %); app : PG 1.28 vs. 1.48 |
 | node-http-v03-bun-sql | Bun.sql instead of pg (parent v02) | < 4500 (only 4500 tested) | – | 4500 | ≤ 5 % less app work; edge run on a slow host |
 | node-http-v04-bun-serve | Bun.serve instead of node:http (parent v03) | 4500 | 2324 | 4700 (2×, slow hosts) | app : PG 0.91; Postgres now larger; Bun PSS 59 MB; **best so far** |
+| python-fastapi-v01-baseline | new stack: FastAPI 0.143 + uvicorn 0.54 (asyncio, h11) + asyncpg 0.32, no pool, no cache | 60 | 29.9 | 70 | ≈ 29 ms CPU/req (Python 12 / PG 16) vs. Node v01 ≈ 21; wait = connection setup |
+| python-fastapi-v02-pool | asyncpg pool min 10 / max 10 (parent v01) | 600 | 306.9 | 650 | 10× v01; ceiling ≈ 300 req/s, CPU 99 %; Python : PG CPU 2.5 (Node v02: 0.84); 500 failed once on a slow host (probe 111), passed on rerun |
 
-All ten are released on GitHub (build, results, `report-<tag>.html`). Best configuration: **node-http v04 (Bun.serve + Bun.sql)**
+All twelve are released on GitHub (build, results, `report-<tag>.html`), and every report is on **GitHub Pages:
+<https://programmerpranit.github.io/1gb-server-test/>** (rebuilt by `.github/workflows/pages.yml` on each push to
+`results/`). Built, not tested: **python-fastapi-v03-feed-cache-1s** (commit `8954d39`). Best configuration: **node-http v04 (Bun.serve + Bun.sql)**
 (cached; on Node: node-http v01; on Express: node-express v06; best uncached: node-express v05).
 
 Tried this session and **not released** (results moved aside, app reverted to v06): feed-cache TTL 5 s (3200 VUs FAIL,
@@ -67,12 +76,16 @@ Tried this session and **not released** (results moved aside, app reverted to v0
 ## Open decisions / next steps
 1. **Node/Bun phase is closed** (user, 2026-10-11) at `node-http-v04-bun-serve`: 4500 VUs / 2324 req/s; 4700
    failed twice, both on slow hosts (probe 104 / 148 ms vs. 82 for the 4500 pass).
-2. **Next, in the user's order: Python → Go → Rust → C++.** Each new stack (`apps/<stack>/`, tags `<stack>-v01-...`)
-   starts as a port of the best Node/Bun logic: same API, CTE writes, prepared statements, pool 10, 1 s in-process
-   feed cache (single-flight), `Server-Timing`. Run the parity check first: `scripts/parity.sh > out.txt`
-   (resets the DB, runs 39 requests) and `diff` against `results/parity/node-http-reference.txt` (only line 1, the
-   app name, may differ). Python first: FastAPI + uvicorn + asyncpg, 1 worker; runtime install goes
-   into `scripts/server/setup.sh` (idempotent).
+2. **Order: Python → Go → Rust → C++.** For Python the user chose to **replay the Node path step by step**
+   (no pool → pool → feed cache → ...) instead of starting from the full port. Python so far: v01 no pool 60 VUs,
+   v02 pool 600 VUs, **v03 feed cache built and deployed, test next session**. Then, one change per tag:
+   uvloop + httptools (`uvicorn[standard]`), orjson, worker count; optionally Django. Every new stack/tag runs the
+   parity check first: `scripts/parity.sh > out.txt` and `diff` against `results/parity/node-http-reference.txt`
+   (only line 1, the app name, may differ). Whether Go/Rust/C++ also start from "no pool" is for the user to decide.
+   - python-fastapi notes: idiomatic FastAPI (handlers return dicts → `jsonable_encoder`); parsing/errors by hand
+     for exact parity; `Server-Timing` from a plain ASGI middleware (header name must be `Server-Timing`, not
+     lower-case, for parity); asyncpg pool runs its reset query on release (counted in `conn`, kept as default —
+     disabling it is a possible later tag); v02 Python ≈ 2.1–2.3 ms CPU/req vs. Postgres ≈ 0.85–0.9.
 3. **Load generator:** 4 vCPU k6 averages ≈ 58 % at 4500 VUs with 100 % peaks. Before any stack goes past ≈ 4500 VUs,
    recreate it with 8 vCPU (new `LOADGEN_LABEL`) and rerun node-http v04 at its edge.
 4. Small items (each likely < 5 %, the user is not interested): `enable_memoize = off`, Unix socket, ETag off.
@@ -87,10 +100,16 @@ Tried this session and **not released** (results moved aside, app reverted to v0
 - **Never publish claude.ai Artifacts**; the GitHub release (with `report-<tag>.html`) is enough.
 - Flag marginal passes (within ≈ 5 % of a limit), CPU dips (client stalls) and host-speed outliers before trusting
   a verdict; propose a rerun when it matters.
-- Commits end with the Co-Authored-By trailer (+ Claude-Session when a session URL is known); push to `main` (private repo
-  `programmerpranit/1gb-server-test`).
+- Commits end with the Co-Authored-By trailer (+ Claude-Session when a session URL is known); push to `main`.
+- **The repo is public since 2026-10-12** (user decision, for GitHub Pages). It exposes the target's public IP and
+  the commit email; the user chose to keep the target's port 3000 open to the internet (restricting it to the VPC
+  10.122.0.0/20 was offered). Never commit `.env` or secrets.
 
-## Tooling fixes made this session (all committed)
+## Tooling added in session 3 (all committed)
+- `apps/python-fastapi/` (new stack), `setup.sh` installs `python3-venv`.
+- `scripts/pages_site.py` + `.github/workflows/pages.yml`: GitHub Pages index of all tags + each `report.html`.
+
+## Tooling fixes made in session 2 (all committed)
 - `deploy.sh` health check runs on the droplet (the Mac cannot reach the private `TARGET_HOST`).
 - `run_test.sh` only reuses a *listening* dashboard tunnel (leftover browser sockets fooled the old check).
 - `scripts/readme_analysis.py` (README per-tag analysis), `scripts/server/cpu_probe.sh`, `scripts/profile.sh`,
