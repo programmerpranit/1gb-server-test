@@ -27,6 +27,7 @@ the highest passing VU level tested; this table is updated automatically. Every 
 | node-http-v02-bun | node-http | runtime Node 24 -> Bun 1.4.2 (same node:http + pg code); parent node-http v01 | 4200 | 4500 | 2077.8 | 124666 | 46.7 | 752.4 | 850.6 | 0 | 498 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v02-bun) |
 | node-http-v03-bun-sql | node-http | Postgres client pg 8.23.1 -> Bun.sql (native); parent node-http v02 | < 4500 | 4500 | - | - | - | - | - | - | - | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v03-bun-sql) |
 | node-http-v04-bun-serve | node-http | HTTP server node:http -> Bun.serve; parent node-http v03 (Bun.sql) | 4500 | 4700 | 2324.2 | 139452 | 14.8 | 319.2 | 911.5 | 0 | 464 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v04-bun-serve) |
+| python-fastapi-v01-baseline | python-fastapi | new stack: FastAPI baseline, no pool, no feed cache (like node-express v01) | 60 | 70 | 29.9 | 1793 | 115.2 | 490.0 | 618.8 | 0 | 397 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/python-fastapi-v01-baseline) |
 <!-- CAPACITY:END -->
 
 ## Findings
@@ -74,6 +75,10 @@ One analysis summary per tag; the full report (summary, configuration, results, 
   2324 req/s** (p99 912 ms); 4700 fails twice, both on slow hosts (probe 104 / 148 ms vs. 82). App : Postgres CPU 0.91 vs. 1.22:
   ≈ 25 % less app work; Postgres is now the larger share. Bun PSS 59 MB. Best result so far.
   [Report](results/node-http-v04-bun-serve/config.md)
+- **python-fastapi-v01-baseline** — new stack: FastAPI + plain uvicorn (asyncio, h11) + asyncpg, 1 process, no pool,
+  no cache (same design as node-express v01). **Capacity 60 VUs / 29.9 req/s**, first fail 70 (p99 1182 ms).
+  CPU-bound, the wait is connection setup again; ≈ 29 ms CPU per request vs. ≈ 21 ms for Node (Python ≈ 12 ms vs.
+  Node ≈ 7 ms, Postgres ≈ 16 vs. 13 ms). [Report](results/python-fastapi-v01-baseline/config.md)
 
 _Protocol-v1 results (MacBook load source) were dropped on 2026-10-10; see git history up to commit `e10904b`._
 
@@ -96,9 +101,11 @@ query time 2×, worse tail). On 1 vCPU a proxy costs about what it saves, and th
 the app : Postgres CPU split or at the same probe values. The 4 vCPU load generator averages ≈ 58 % CPU at 4500 VUs
 with 100 % peaks; levels above ≈ 4500 VUs need an 8 vCPU one (new `LOADGEN_LABEL`, rerun the reference at its edge).
 
-**Next (user's order): Python → Go → Rust → C++.** Each stack starts as a port of the best Node/Bun logic (same API,
-CTE writes, prepared statements, pool 10, 1 s feed cache, `Server-Timing`) and must pass the parity check first.
-1. **Python**: FastAPI + uvicorn + asyncpg (1 worker), then uvloop / orjson / worker count; optionally Django.
+**Next (user's order): Python → Go → Rust → C++.** Each stack must pass the parity check first.
+1. **Python** (in progress): the user chose to start from a plain baseline like node-express v01 —
+   `python-fastapi-v01-baseline` (no pool, no cache) = 60 VUs / 29.9 req/s. Next `python-fastapi-v02-pool` (asyncpg
+   pool max 10, the change that took Node from 100 to 1350 VUs), then the 1 s feed cache, uvloop + httptools,
+   orjson, worker count; optionally Django.
 2. **Go**: `net/http` + pgx.
 3. **Rust**: axum + tokio-postgres (or sqlx) + deadpool, release build with LTO.
 4. **C++**: e.g. Drogon or Boost.Beast + libpq, release build.
@@ -680,6 +687,66 @@ A faster runtime / HTTP layer for the same code: **Bun** (`Bun.serve` or `node:h
 tag, or uWebSockets.js. Before pushing past ≈ 3500 VUs, recreate the load generator with 8 vCPU (new
 `LOADGEN_LABEL`) and rerun the current best at its edge for comparability. Then other stacks (Go, Rust) with the same
 1 s feed cache.
+
+### python-fastapi-v01-baseline
+
+[Full report](results/python-fastapi-v01-baseline/config.md) · [Release](https://github.com/programmerpranit/1gb-server-test/releases/tag/python-fastapi-v01-baseline)
+
+#### What changed
+
+New stack `apps/python-fastapi/`, no parent (first Python tag). The design matches **node-express v01** (the Node
+baseline): one process, **no connection pool** (a new asyncpg connection per request, closed before the response is
+sent; `conn` = connect + auth + close), **no feed cache**, writes as one CTE statement (as in every current stack),
+`Server-Timing` on every response. Idiomatic FastAPI: route decorators, handlers return dicts that FastAPI encodes
+(`jsonable_encoder` + `json.dumps`). Path, query and body parsing are done by hand so status codes and error bodies
+match the other stacks (FastAPI's own validation would answer 422 with a different body); unknown routes and methods
+answer 404 `{"error":"not found"}`; `/docs` and `/openapi.json` are off. `Server-Timing` comes from a plain ASGI
+middleware (outermost app middleware), which also ignores trailing slashes like the JavaScript routers. The parity
+check (39 requests on a fresh DB) gave responses identical to the node-http reference. App code from commit `d21ccdf`.
+
+#### Summary
+
+**Capacity: 60 VUs at 29.9 req/s (1,793 req/min)**, steady p50 115 ms / p95 490 ms / p99 619 ms, 0 % errors (not
+marginal: p95 and p99 38–39 % under their limits). The first failing level is **70 VUs**: 32.2 req/s, p95 1006 ms /
+p99 1182 ms (limits 800 / 1000), still 0 % errors. At 100 VUs: 35.8 req/s, p50 955 ms. **Python's no-pool baseline
+reaches 60 % of node-express v01's capacity** (100 VUs / 46.7 req/s, same design: no pool, no cache, one connection
+per request).
+
+- **The bottleneck is the CPU, and most of the wait is connection setup, as on Node.** CPU 87 % at 60 VUs, 93 % at
+  70 VUs and 100 % at 100 VUs, steal ≤ 0.2 %. Server time at 60 VUs p50 109 ms = `conn` (connect + SCRAM auth +
+  close) 82 ms + `db` 24 ms + `app` 1.8 ms. Past the edge the wait grows almost entirely in `conn` (p95 365 → 739 →
+  1273 ms at 60 / 70 / 100 VUs): every request makes Postgres start a backend process and check a SCRAM password.
+- **Python costs ≈ 75 % more app CPU per request than Node, and Postgres ≈ 25 % more.** At 60 VUs Python used 36 %
+  and Postgres 49 % of the vCPU at 29.9 req/s: ≈ 12.1 ms (Python) + 16.3 ms (Postgres) per request, 29 ms in total.
+  node-express v01 at 100 VUs: Node 32 % / Postgres 61 % at 46.7 req/s ≈ 6.9 + 13.1 ms, 21 ms in total (no host-speed
+  probe existed then; this run's probe was 80–112 ms, around normal). Python's share: pure-Python asyncio loop and
+  h11 parser, FastAPI routing + `jsonable_encoder`, asyncpg's connect/auth. The higher Postgres cost is likely
+  asyncpg's protocol: it prepares every query (Parse + Describe, then Bind + Execute) on the fresh connection, where
+  node-postgres sent unnamed parameterised queries in one round trip.
+- **Memory is not a constraint.** Peak 449 MB used (100 VUs), Python PSS ≤ 65 MB, Postgres ≤ 71 MB, no swap.
+- **No errors and no `too many clients`:** connections stay short-lived, at most one per VU (≤ 100).
+- **The load generator is not a factor:** ≤ 2.3 % CPU on average, k6 RSS ≤ 93 MB.
+- **Next:** `python-fastapi-v02-pool` — an asyncpg pool (max 10), the only change. On Node the pool removed the
+  per-request connect + auth (≈ 80 % of server time) and lifted capacity from 100 to 1350 VUs.
+
+#### Observations
+
+- CPU per request is flat across levels (28–29 ms), so throughput is capped by the CPU at ≈ 34–36 req/s; the 70 VUs
+  offer ≈ 35 req/s, right at that ceiling, and the queue shows up in `conn`.
+- 70 VUs: the host slowed during the run (probe 86 → 112 ms) and the CPU dipped to 63 % at times; p50 213 ms was
+  well under its limit and only the tail failed. On a fast host 70 might pass, but 60 → 70 is a 17 % step and the
+  next tag changes the picture anyway.
+- `app` time stays ≈ 2 ms p50 / 5–6 ms p95 at every level: FastAPI's own work per request is small next to
+  connection setup, but it runs on the same single vCPU as Postgres's backend start-up.
+- Time outside the app (client − server): p50 6 / 14 / 69 ms at 60 / 70 / 100 VUs — at 100 VUs requests also wait in
+  the event loop and accept queue before the middleware starts the clock.
+- `app_log_tail.txt` has no errors at any level.
+
+#### Next idea
+
+`python-fastapi-v02-pool` (parent v01): `asyncpg.create_pool(max_size=10)`, one pooled connection per request, the
+only change (prepared statements are then cached per pooled connection). Start near the expected order of magnitude
+(Node v02: 1350 VUs; Python's higher app CPU per request suggests well below that, e.g. 400–800 VUs).
 <!-- ANALYSIS:END -->
 
 ## All runs
@@ -739,6 +806,9 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 | node-http-v03-bun-sql | node-http | 4500 | FAIL | 1954.7 | 117280 | 189837 | 416.9 | 956.9 | 1087.9 | 1546.8 | 1785 | 397.7 | 1060 | 998.8 | 0 | 109 | 132 | 500 | 0 | 99.8 | 0.7 | do-blr1-loadgen-4vcpu-8gb |
 | node-http-v04-bun-serve | node-http | 4500 | PASS | 2324.2 | 139452 | 214994 | 14.8 | 174.4 | 319.2 | 911.5 | 1485 | 1.5 | 270.7 | 193.5 | 0 | 59 | 133 | 464 | 0 | 94.1 | 0.2 | do-blr1-loadgen-4vcpu-8gb |
 | node-http-v04-bun-serve | node-http | 4700 | FAIL | 2143.5 | 128609 | 204841 | 162.6 | 1001.0 | 1188.2 | 1546.8 | 1837 | 128.9 | 1157.9 | 1095.5 | 0 | 61 | 133 | 461 | 0 | 99.1 | 0.6 | do-blr1-loadgen-4vcpu-8gb |
+| python-fastapi-v01-baseline | python-fastapi | 100 | FAIL | 35.8 | 2146 | 3601 | 954.8 | 1475.6 | 1721.6 | 1969.3 | 2220 | 885.9 | 1606.9 | 1273.2 | 0 | 65 | 71 | 449 | 0 | 100.0 | 0.1 | do-blr1-loadgen-4vcpu-8gb |
+| python-fastapi-v01-baseline | python-fastapi | 70 | FAIL | 32.2 | 1930 | 3005 | 213.2 | 734.7 | 1006.0 | 1182.4 | 1401 | 199.3 | 934.5 | 739.2 | 0 | 58 | 52 | 414 | 0 | 92.6 | 0.2 | do-blr1-loadgen-4vcpu-8gb |
+| python-fastapi-v01-baseline | python-fastapi | 60 | PASS | 29.9 | 1793 | 2752 | 115.2 | 364.8 | 490.0 | 618.8 | 713 | 109.1 | 456.5 | 364.8 | 0 | 53 | 46 | 397 | 0 | 86.9 | 0.1 | do-blr1-loadgen-4vcpu-8gb |
 <!-- RESULTS:END -->
 
 ## Reproducing

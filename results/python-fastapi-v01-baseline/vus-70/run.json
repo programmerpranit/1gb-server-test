@@ -1,0 +1,13 @@
+{
+  "tag": "python-fastapi-v01-baseline",
+  "stack": "python-fastapi",
+  "vus": 70,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791826981,
+  "loadgen": "do-blr1-loadgen-4vcpu-8gb",
+  "loadgen_nofile": "1048576",
+  "git_sha": "d21ccdf",
+  "k6_version": "k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)",
+  "date": "2026-10-12T17:45:23Z"
+}

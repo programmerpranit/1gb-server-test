@@ -1,0 +1,156 @@
+{
+  "tag": "python-fastapi-v01-baseline",
+  "stack": "python-fastapi",
+  "vus": 100,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791826406,
+  "loadgen": "do-blr1-loadgen-4vcpu-8gb",
+  "loadgen_nofile": "1048576",
+  "git_sha": "d21ccdf",
+  "k6_version": "k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)",
+  "date": "2026-10-12T17:35:49Z",
+  "total_requests": 3601,
+  "avg_rps": 29.034102493414505,
+  "steady_requests": 2146,
+  "steady_rps": 35.766666666666666,
+  "steady_rpm": 2146.0,
+  "vus_max": 100,
+  "iterations": 3209,
+  "error_rate_pct": 0,
+  "steady_error_rate_pct": 0,
+  "latency_ms": {
+    "avg": 688.4883131585669,
+    "med": 682.989785,
+    "p(90)": 1324.169787,
+    "p(95)": 1548.788464,
+    "p(99)": 1887.134515,
+    "max": 2220.404411
+  },
+  "steady_latency_ms": {
+    "avg": 958.796980317334,
+    "med": 954.795237,
+    "p(90)": 1475.6452715,
+    "p(95)": 1721.554342,
+    "p(99)": 1969.2978438000005,
+    "max": 2220.404411
+  },
+  "per_endpoint_p95_ms": {
+    "DELETE /posts/:id/like": 1749.61766135,
+    "GET /posts": 1522.1915718999999,
+    "POST /posts/:id/comments": 1477.7664359999999,
+    "GET /users/:id/posts": 1415.6320448999995,
+    "POST /posts/:id/like": 1450.4058691999999,
+    "GET /posts/:id": 1786.8739494,
+    "POST /posts": 1526.290230149999,
+    "GET /me/posts": 1470.7561433999997
+  },
+  "server_timing_ms": {
+    "total": {
+      "med": 885.9000000000001,
+      "p(95)": 1606.9,
+      "p(99)": 1850.4300000000023,
+      "max": 2120.2
+    },
+    "conn": {
+      "med": 713.6,
+      "p(95)": 1273.25,
+      "p(99)": 1456.4800000000014,
+      "max": 1590.9
+    },
+    "db": {
+      "med": 155.6,
+      "p(95)": 346.225,
+      "p(99)": 499.85000000000053,
+      "max": 670.3
+    },
+    "app": {
+      "med": 1.4,
+      "p(95)": 6,
+      "p(99)": 9.7,
+      "max": 39.7
+    }
+  },
+  "server_total_p95_by_endpoint_ms": {
+    "GET /posts/:id": 1658.4399999999996,
+    "POST /posts/:id/comments": 1369.9,
+    "DELETE /posts/:id/like": 1590.6499999999999,
+    "GET /users/:id/posts": 1287.1799999999998,
+    "GET /me/posts": 1376.225,
+    "POST /posts/:id/like": 1336.5999999999997,
+    "GET /posts": 1407.715,
+    "POST /posts": 1397.9699999999993
+  },
+  "server_timing_missing": 0,
+  "bench": {
+    "language": "Python",
+    "runtime": "python",
+    "framework": "FastAPI 0.143.0 + uvicorn 0.54.0 (asyncio loop, h11)",
+    "db": "postgres",
+    "db_driver": "asyncpg 0.32.0",
+    "db_pool": "none (new connection per request)",
+    "workers": 1,
+    "change": "new stack: FastAPI baseline, no pool, no feed cache (like node-express v01)"
+  },
+  "server_env": {
+    "app": "python-fastapi",
+    "kernel": "6.8.0-142-generic",
+    "os": "Ubuntu 24.04.5 LTS",
+    "nproc": "1",
+    "mem_total_mb": "961",
+    "node": "v24.21.0",
+    "bun": "1.4.2",
+    "python": "3.12.3",
+    "go": "",
+    "postgres": "16.15",
+    "proxy": "none",
+    "swap_mb": "0",
+    "shared_buffers": "128MB",
+    "max_connections": "100",
+    "mem_avail_mb_idle": "619",
+    "cpu_probe_before_ms": "80.1",
+    "cpu_probe_after_ms": "87.6"
+  },
+  "outside_ms": {
+    "med": 68.89523699999995,
+    "p(95)": 114.65434199999982
+  },
+  "server": {
+    "app_pss_mb_peak": 65.0,
+    "pg_pss_mb_peak": 71.0,
+    "mem_used_mb_peak": 449.0,
+    "mem_avail_mb_min": 512.0,
+    "swap_used_mb_peak": 0.0,
+    "cpu_total_pct_avg_steady": 99.96666666666667,
+    "cpu_steal_pct_avg_steady": 0.05,
+    "app_cpu_pct_avg_steady": 40.334999999999994,
+    "pg_cpu_pct_avg_steady": 56.36833333333333,
+    "app_conns_peak": 102.0,
+    "load1_peak": 2.22,
+    "proxy_cpu_pct_avg_steady": 0.0,
+    "proxy_pss_mb_peak": 0.0
+  },
+  "loadgen_stats": {
+    "lg_cpu_pct_avg_steady": 2.2649999999999997,
+    "lg_cpu_pct_peak": 9.0,
+    "k6_rss_mb_peak": 93.0,
+    "lg_mem_used_mb_peak": 471.0
+  },
+  "cpu_ms_per_req_steady": 27.94967381174278,
+  "cpu_probe_ms": {
+    "before": "80.1",
+    "after": "87.6"
+  },
+  "pass": false,
+  "fail_reasons": [
+    "p50 955>=500ms",
+    "p95 1722>=800ms",
+    "p99 1969>=1000ms"
+  ],
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  }
+}

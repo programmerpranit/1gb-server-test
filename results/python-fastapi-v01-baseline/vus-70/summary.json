@@ -1,0 +1,155 @@
+{
+  "tag": "python-fastapi-v01-baseline",
+  "stack": "python-fastapi",
+  "vus": 70,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791826981,
+  "loadgen": "do-blr1-loadgen-4vcpu-8gb",
+  "loadgen_nofile": "1048576",
+  "git_sha": "d21ccdf",
+  "k6_version": "k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)",
+  "date": "2026-10-12T17:45:23Z",
+  "total_requests": 3005,
+  "avg_rps": 24.33153939098761,
+  "steady_requests": 1930,
+  "steady_rps": 32.166666666666664,
+  "steady_rpm": 1930.0,
+  "vus_max": 70,
+  "iterations": 2699,
+  "error_rate_pct": 0,
+  "steady_error_rate_pct": 0,
+  "latency_ms": {
+    "avg": 253.05852210016656,
+    "med": 151.576647,
+    "p(90)": 665.828865,
+    "p(95)": 828.8542043999997,
+    "p(99)": 1155.9522884000003,
+    "max": 1401.354832
+  },
+  "steady_latency_ms": {
+    "avg": 308.14613378860105,
+    "med": 213.1742715,
+    "p(90)": 734.7416316000005,
+    "p(95)": 1005.97238235,
+    "p(99)": 1182.42437672,
+    "max": 1401.354832
+  },
+  "per_endpoint_p95_ms": {
+    "DELETE /posts/:id/like": 636.7034077999998,
+    "POST /posts/:id/like": 856.4078016000004,
+    "GET /me/posts": 775.3504869999999,
+    "POST /posts": 948.442405449998,
+    "GET /posts": 805.5182217,
+    "POST /posts/:id/comments": 776.5352621999998,
+    "GET /posts/:id": 971.8907837999957,
+    "GET /users/:id/posts": 854.7998561999999
+  },
+  "server_timing_ms": {
+    "total": {
+      "med": 199.3,
+      "p(95)": 934.4749999999998,
+      "p(99)": 1116.6270000000002,
+      "max": 1351
+    },
+    "conn": {
+      "med": 156.2,
+      "p(95)": 739.165,
+      "p(99)": 890.9970000000001,
+      "max": 1012.5
+    },
+    "db": {
+      "med": 39.349999999999994,
+      "p(95)": 181.18499999999997,
+      "p(99)": 237.88500000000013,
+      "max": 426.8
+    },
+    "app": {
+      "med": 1.7,
+      "p(95)": 5.5,
+      "p(99)": 8.142000000000007,
+      "max": 11.5
+    }
+  },
+  "server_total_p95_by_endpoint_ms": {
+    "GET /posts/:id": 902.0799999999969,
+    "DELETE /posts/:id/like": 583.2199999999998,
+    "GET /me/posts": 728.875,
+    "POST /posts/:id/like": 781.9800000000002,
+    "POST /posts": 862.5149999999986,
+    "POST /posts/:id/comments": 717.8399999999997,
+    "GET /users/:id/posts": 788.4449999999996,
+    "GET /posts": 754.455
+  },
+  "server_timing_missing": 0,
+  "bench": {
+    "language": "Python",
+    "runtime": "python",
+    "framework": "FastAPI 0.143.0 + uvicorn 0.54.0 (asyncio loop, h11)",
+    "db": "postgres",
+    "db_driver": "asyncpg 0.32.0",
+    "db_pool": "none (new connection per request)",
+    "workers": 1,
+    "change": "new stack: FastAPI baseline, no pool, no feed cache (like node-express v01)"
+  },
+  "server_env": {
+    "app": "python-fastapi",
+    "kernel": "6.8.0-142-generic",
+    "os": "Ubuntu 24.04.5 LTS",
+    "nproc": "1",
+    "mem_total_mb": "961",
+    "node": "v24.21.0",
+    "bun": "1.4.2",
+    "python": "3.12.3",
+    "go": "",
+    "postgres": "16.15",
+    "proxy": "none",
+    "swap_mb": "0",
+    "shared_buffers": "128MB",
+    "max_connections": "100",
+    "mem_avail_mb_idle": "615",
+    "cpu_probe_before_ms": "86.1",
+    "cpu_probe_after_ms": "111.9"
+  },
+  "outside_ms": {
+    "med": 13.874271499999992,
+    "p(95)": 71.49738235000018
+  },
+  "server": {
+    "app_pss_mb_peak": 58.0,
+    "pg_pss_mb_peak": 52.0,
+    "mem_used_mb_peak": 414.0,
+    "mem_avail_mb_min": 547.0,
+    "swap_used_mb_peak": 0.0,
+    "cpu_total_pct_avg_steady": 92.59166666666667,
+    "cpu_steal_pct_avg_steady": 0.18333333333333332,
+    "app_cpu_pct_avg_steady": 38.49666666666667,
+    "pg_cpu_pct_avg_steady": 51.823333333333345,
+    "app_conns_peak": 70.0,
+    "load1_peak": 1.81,
+    "proxy_cpu_pct_avg_steady": 0.0,
+    "proxy_pss_mb_peak": 0.0
+  },
+  "loadgen_stats": {
+    "lg_cpu_pct_avg_steady": 1.984999999999999,
+    "lg_cpu_pct_peak": 10.1,
+    "k6_rss_mb_peak": 78.0,
+    "lg_mem_used_mb_peak": 463.0
+  },
+  "cpu_ms_per_req_steady": 28.784974093264253,
+  "cpu_probe_ms": {
+    "before": "86.1",
+    "after": "111.9"
+  },
+  "pass": false,
+  "fail_reasons": [
+    "p95 1006>=800ms",
+    "p99 1182>=1000ms"
+  ],
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  }
+}
