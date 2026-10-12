@@ -378,6 +378,11 @@ directly: same API, single-statement CTE writes, prepared statements, DB pool ma
 ### Phase 3 — Python
 FastAPI + uvicorn + asyncpg (baseline: 1 worker), then gunicorn worker count, uvloop, orjson; optionally Django/DRF
 for a "batteries included" data point.
+- [x] **`python-fastapi-v01-baseline`** (new stack `apps/python-fastapi/`, user's choice: plain baseline like
+      node-express v01) — FastAPI 0.143 + uvicorn 0.54 without extras (asyncio, h11), asyncpg 0.32, CPython 3.12.3
+      (system, venv), 1 process, **no pool, no cache**, CTE writes. Parity identical. Capacity 60 VUs / 29.9 req/s,
+      first fail 70; CPU-bound, wait in `conn`; ≈ 29 ms CPU/req (Python ≈ 12 / PG ≈ 16) vs. Node v01 ≈ 21 (7 / 13).
+- [ ] `python-fastapi-v02-pool` — asyncpg pool max 10.
 
 ### Phase 4 — Go
 `net/http` + `pgx` pool baseline; then GOMAXPROCS / GOGC / memory limit, chi/fiber, sqlc.
