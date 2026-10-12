@@ -16,7 +16,7 @@ export DEBIAN_FRONTEND=noninteractive
 echo ">> base packages"
 apt-get update -y
 apt-get upgrade -y
-apt-get install -y ca-certificates curl gnupg rsync ufw postgresql postgresql-contrib build-essential jq nginx
+apt-get install -y ca-certificates curl gnupg rsync ufw postgresql postgresql-contrib build-essential jq nginx python3-venv
 # nginx only runs for apps that ship an nginx.conf (install_app.sh enables it then).
 systemctl disable --now nginx >/dev/null 2>&1 || true
 
@@ -81,6 +81,7 @@ echo ">> versions"
 uname -r
 lsb_release -ds 2>/dev/null || cat /etc/os-release | head -1
 node -v
+python3 --version
 psql --version
 nproc
 free -m
