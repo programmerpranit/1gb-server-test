@@ -6,5 +6,5 @@
   "db_driver": "asyncpg 0.32.0",
   "db_pool": "asyncpg pool min 10 / max 10",
   "workers": 1,
-  "change": "asyncpg pool (max 10) instead of a new connection per request; parent v01"
+  "change": "1 s in-process cache of GET /posts (single-flight); parent v02"
 }

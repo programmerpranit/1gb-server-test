@@ -1,6 +1,7 @@
 # Implementation of the protocol v2 API (see CLAUDE.md "API contract") with FastAPI on uvicorn.
 # Deliberately plain, like node-express v02: one process, an asyncpg pool with default settings except max_size
-# (min 10, max 10; every request acquires one connection for all its queries and releases it when done), no cache.
+# (min 10, max 10; every request acquires one connection for all its queries and releases it when done).
+# GET /posts (global feed) is cached in process for 1 s (see "Global feed cache"), as in node-express v06 / node-http.
 # Writes that touch two tables (like + counter, comment + counter) are ONE statement with data-modifying CTEs, as in
 # every other stack. asyncpg prepares every query and caches the prepared statement per pooled connection.
 # Idiomatic FastAPI: route decorators, handlers return dicts (FastAPI encodes them with jsonable_encoder + json).
@@ -8,6 +9,7 @@
 # (FastAPI's own validation would answer 422 with a different body). /docs and /openapi.json are off.
 # Every response carries a Server-Timing header: conn (pool acquire + release), db (queries), app (the rest), total.
 
+import asyncio
 import json
 import os
 import re
@@ -17,7 +19,7 @@ from contextlib import asynccontextmanager
 
 import asyncpg
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 DATABASE_URL = os.environ["DATABASE_URL"]
@@ -215,9 +217,11 @@ pool = None
 async def lifespan(app):
     global pool
     pool = await asyncpg.create_pool(DATABASE_URL, min_size=10, max_size=10)
+    janitor = asyncio.create_task(feed_cache_janitor())
     try:
         yield
     finally:
+        janitor.cancel()
         await pool.close()
 
 
@@ -250,6 +254,57 @@ async def connection(request):
         start = now_ms()
         await pool.release(conn)
         timing.conn += now_ms() - start
+
+
+# --- Global feed cache ---------------------------------------------------------------------------------------------
+# GET /posts responses (encoded JSON) are cached in process for FEED_CACHE_TTL_S, keyed by (limit, before).
+# Trade-off: the global feed may be up to one TTL stale (new posts, like/comment counts). Concurrent misses for the
+# same key share one query (single-flight, an asyncio task): the request that starts it records conn/db time, the
+# ones waiting on it record their wait as app time. Hit/miss counts are logged every 10 s while there is traffic.
+FEED_CACHE_TTL_S = 1.0
+feed_cache = {}  # (limit, before) -> (expires, task resolving to the body bytes)
+feed_stats = {"hit": 0, "miss": 0}
+
+
+async def feed_cache_janitor():
+    while True:
+        await asyncio.sleep(10)
+        now = time.monotonic()
+        for key in [k for k, (expires, _) in feed_cache.items() if expires <= now]:
+            del feed_cache[key]
+        if feed_stats["hit"] + feed_stats["miss"] > 0:
+            print(f"feed cache: hit={feed_stats['hit']} miss={feed_stats['miss']} keys={len(feed_cache)}")
+            feed_stats["hit"] = feed_stats["miss"] = 0
+
+
+async def load_feed(request, limit, before):
+    async with connection(request) as db:
+        rows = await db.fetch(f"""
+            SELECT {POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id
+            WHERE p.is_public AND p.id < $1 ORDER BY p.id DESC LIMIT $2""", before, limit)
+    # Encoded like Starlette's JSONResponse.render.
+    return json.dumps(page([to_json(r) for r in rows], limit), ensure_ascii=False, separators=(",", ":")).encode()
+
+
+def cached_feed(request, limit, before):
+    key = (limit, before)
+    now = time.monotonic()
+    entry = feed_cache.get(key)
+    if entry is not None and entry[0] > now:
+        feed_stats["hit"] += 1
+        return entry[1]
+    feed_stats["miss"] += 1
+    task = asyncio.ensure_future(load_feed(request, limit, before))
+    fresh = (now + FEED_CACHE_TTL_S, task)
+    feed_cache[key] = fresh
+
+    # A failed query is not cached: the waiting requests get the error, the next request retries.
+    def drop_failed(t):
+        if (t.cancelled() or t.exception() is not None) and feed_cache.get(key) is fresh:
+            del feed_cache[key]
+
+    task.add_done_callback(drop_failed)
+    return task
 
 
 # --- App -----------------------------------------------------------------------------------------------------------
@@ -286,11 +341,7 @@ async def health(request: Request):
 @app.get("/posts")
 async def global_feed(request: Request):
     limit, before = page_params(request)
-    async with connection(request) as db:
-        rows = await db.fetch(f"""
-            SELECT {POST_COLUMNS} FROM posts p JOIN users u ON u.id = p.user_id
-            WHERE p.is_public AND p.id < $1 ORDER BY p.id DESC LIMIT $2""", before, limit)
-    return page([to_json(r) for r in rows], limit)
+    return Response(await cached_feed(request, limit, before), media_type=JSON.media_type)
 
 
 @app.get("/posts/{post_id}")
