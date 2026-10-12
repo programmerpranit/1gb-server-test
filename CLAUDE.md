@@ -386,7 +386,9 @@ for a "batteries included" data point.
       node-express v01) — FastAPI 0.143 + uvicorn 0.54 without extras (asyncio, h11), asyncpg 0.32, CPython 3.12.3
       (system, venv), 1 process, **no pool, no cache**, CTE writes. Parity identical. Capacity 60 VUs / 29.9 req/s,
       first fail 70; CPU-bound, wait in `conn`; ≈ 29 ms CPU/req (Python ≈ 12 / PG ≈ 16) vs. Node v01 ≈ 21 (7 / 13).
-- [ ] `python-fastapi-v02-pool` — asyncpg pool max 10.
+- [x] **`python-fastapi-v02-pool`** — asyncpg pool min 10 / max 10 (reset query on release, default). Capacity
+      600 VUs / 306.9 req/s, first fail 650 (CPU 99 %, no more req/s); 3.1–3.5 ms CPU/req; Python : PG CPU 2.5.
+- [ ] `python-fastapi-v03-feed-cache-1s` — 1 s in-process cache of `GET /posts`, single-flight.
 
 ### Phase 4 — Go
 `net/http` + `pgx` pool baseline; then GOMAXPROCS / GOGC / memory limit, chi/fiber, sqlc.
