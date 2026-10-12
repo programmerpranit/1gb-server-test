@@ -5,6 +5,7 @@ small social-feed API written in different languages and frameworks, with Postgr
 
 Every configuration is hit with the same 2-minute k6 test (60 s ramp from 0 to N virtual users, 60 s hold) and tagged
 as a GitHub release with its code and raw results. Methodology, API contract and plan live in [CLAUDE.md](CLAUDE.md).
+**Reports with charts for every configuration: <https://programmerpranit.github.io/1gb-server-test/>**
 
 ## Capacity per configuration
 
@@ -28,6 +29,7 @@ the highest passing VU level tested; this table is updated automatically. Every 
 | node-http-v03-bun-sql | node-http | Postgres client pg 8.23.1 -> Bun.sql (native); parent node-http v02 | < 4500 | 4500 | - | - | - | - | - | - | - | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v03-bun-sql) |
 | node-http-v04-bun-serve | node-http | HTTP server node:http -> Bun.serve; parent node-http v03 (Bun.sql) | 4500 | 4700 | 2324.2 | 139452 | 14.8 | 319.2 | 911.5 | 0 | 464 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/node-http-v04-bun-serve) |
 | python-fastapi-v01-baseline | python-fastapi | new stack: FastAPI baseline, no pool, no feed cache (like node-express v01) | 60 | 70 | 29.9 | 1793 | 115.2 | 490.0 | 618.8 | 0 | 397 | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/python-fastapi-v01-baseline) |
+| python-fastapi-v02-pool | python-fastapi | asyncpg pool (max 10) instead of a new connection per request; parent v01 | < 500 | 500 | - | - | - | - | - | - | - | [release](https://github.com/programmerpranit/1gb-server-test/releases/tag/python-fastapi-v02-pool) |
 <!-- CAPACITY:END -->
 
 ## Findings
@@ -809,6 +811,7 @@ One row per (tag, VU level). `scripts/run_test.sh` upserts rows automatically.
 | python-fastapi-v01-baseline | python-fastapi | 100 | FAIL | 35.8 | 2146 | 3601 | 954.8 | 1475.6 | 1721.6 | 1969.3 | 2220 | 885.9 | 1606.9 | 1273.2 | 0 | 65 | 71 | 449 | 0 | 100.0 | 0.1 | do-blr1-loadgen-4vcpu-8gb |
 | python-fastapi-v01-baseline | python-fastapi | 70 | FAIL | 32.2 | 1930 | 3005 | 213.2 | 734.7 | 1006.0 | 1182.4 | 1401 | 199.3 | 934.5 | 739.2 | 0 | 58 | 52 | 414 | 0 | 92.6 | 0.2 | do-blr1-loadgen-4vcpu-8gb |
 | python-fastapi-v01-baseline | python-fastapi | 60 | PASS | 29.9 | 1793 | 2752 | 115.2 | 364.8 | 490.0 | 618.8 | 713 | 109.1 | 456.5 | 364.8 | 0 | 53 | 46 | 397 | 0 | 86.9 | 0.1 | do-blr1-loadgen-4vcpu-8gb |
+| python-fastapi-v02-pool | python-fastapi | 500 | FAIL | 246.8 | 14806 | 23194 | 34.1 | 162.0 | 516.6 | 4363.3 | 6405 | 25.7 | 489.8 | 465.4 | 0 | 73 | 109 | 466 | 0 | 91.6 | 0.5 | do-blr1-loadgen-4vcpu-8gb |
 <!-- RESULTS:END -->
 
 ## Reproducing

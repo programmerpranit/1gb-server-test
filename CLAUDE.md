@@ -98,6 +98,9 @@ scripts/
   release.sh --update <tag>   after adding VU levels to a released tag: push results, refresh release assets/notes
   report_html.py <tag_dir>    results/<tag>/report.html: summary, levels table, charts (k6 2-s snapshots decoded
                               from k6_report.html, server + load-gen samples); run by release.sh, attached to the release
+  pages_site.py <out_dir>     GitHub Pages site: index of all tags + every results/<tag>/report.html; built and
+                              deployed by .github/workflows/pages.yml on each push touching results/
+                              (https://programmerpranit.github.io/1gb-server-test/, repo public since 2026-10-12)
   profile.sh <vus> [label]    profiling run (NOT official): perf system-wide + V8 --cpu-prof -> profiles/<date>-<label>/
   cpuprofile_summary.py       V8 .cpuprofile -> self time by category / function (used by profile.sh)
   readme_analysis.py          copies every tag's What changed / Summary / Observations / Next idea from
@@ -248,7 +251,8 @@ After the search, `summarize.py --capacity` writes `capacity.json` and upserts R
 - Parent of each tag is the previous tag of the same stack unless `config.md` says otherwise.
 - `scripts/release.sh <tag>` commits `results/<tag>/` + README, creates the annotated tag, pushes, and creates a
   GitHub release with `build-<tag>.tgz` (app source + shared scripts at that tag) and `results-<tag>.tgz`.
-- Remote: `github.com/programmerpranit/1gb-server-test` (private). Requires `gh auth login` on the machine releasing.
+- Remote: `github.com/programmerpranit/1gb-server-test` (**public** since 2026-10-12; reports on GitHub Pages:
+  <https://programmerpranit.github.io/1gb-server-test/>, rebuilt automatically after each `release.sh` push). Requires `gh auth login` on the machine releasing.
 
 ## Workflow for one configuration
 
