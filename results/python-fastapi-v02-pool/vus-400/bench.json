@@ -1,0 +1,10 @@
+{
+  "language": "Python",
+  "runtime": "python",
+  "framework": "FastAPI 0.143.0 + uvicorn 0.54.0 (asyncio loop, h11)",
+  "db": "postgres",
+  "db_driver": "asyncpg 0.32.0",
+  "db_pool": "asyncpg pool min 10 / max 10",
+  "workers": 1,
+  "change": "asyncpg pool (max 10) instead of a new connection per request; parent v01"
+}

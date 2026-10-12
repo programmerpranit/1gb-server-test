@@ -1,0 +1,152 @@
+{
+  "tag": "python-fastapi-v02-pool",
+  "stack": "python-fastapi",
+  "vus": 600,
+  "ramp_s": 60,
+  "hold_s": 60,
+  "k6_started_at": 1791828605,
+  "loadgen": "do-blr1-loadgen-4vcpu-8gb",
+  "loadgen_nofile": "1048576",
+  "git_sha": "dd04bd0",
+  "k6_version": "k6 v2.3.0 (commit/e088784614, go1.26.8, linux/amd64)",
+  "date": "2026-10-12T18:12:28Z",
+  "total_requests": 28367,
+  "avg_rps": 229.52814111464156,
+  "steady_requests": 18417,
+  "steady_rps": 306.95,
+  "steady_rpm": 18417.0,
+  "vus_max": 600,
+  "iterations": 25321,
+  "error_rate_pct": 0,
+  "steady_error_rate_pct": 0,
+  "latency_ms": {
+    "avg": 86.64651445249787,
+    "med": 31.242245,
+    "p(90)": 253.07608740000026,
+    "p(95)": 381.82270269999935,
+    "p(99)": 776.5535286800001,
+    "max": 2715.33995
+  },
+  "steady_latency_ms": {
+    "avg": 105.51703930352389,
+    "med": 42.593763,
+    "p(90)": 293.90323240000004,
+    "p(95)": 434.6181560000002,
+    "p(99)": 862.5907952400004,
+    "max": 2715.33995
+  },
+  "per_endpoint_p95_ms": {
+    "POST /posts": 388.0697545999999,
+    "POST /posts/:id/comments": 391.095994,
+    "GET /me/posts": 413.9527172499999,
+    "GET /posts": 374.7080044,
+    "GET /users/:id/posts": 376.7870487999998,
+    "POST /posts/:id/like": 363.139869,
+    "DELETE /posts/:id/like": 514.2641126499997,
+    "GET /posts/:id": 406.30546209999994
+  },
+  "server_timing_ms": {
+    "total": {
+      "med": 32.6,
+      "p(95)": 415.06000000000057,
+      "p(99)": 843.7800000000007,
+      "max": 2683.4
+    },
+    "conn": {
+      "med": 19.7,
+      "p(95)": 398.7200000000004,
+      "p(99)": 826.0880000000005,
+      "max": 2672.4
+    },
+    "db": {
+      "med": 9.2,
+      "p(95)": 23.7,
+      "p(99)": 37.7,
+      "max": 96.5
+    },
+    "app": {
+      "med": 0.8,
+      "p(95)": 1.9,
+      "p(99)": 3.3,
+      "max": 19.8
+    }
+  },
+  "server_total_p95_by_endpoint_ms": {
+    "POST /posts/:id/comments": 374.6,
+    "GET /posts/:id": 381.7149999999999,
+    "GET /posts": 352.8,
+    "GET /users/:id/posts": 355.4599999999997,
+    "POST /posts": 372.0599999999998,
+    "POST /posts/:id/like": 340.3,
+    "GET /me/posts": 397.34499999999963,
+    "DELETE /posts/:id/like": 499.8049999999997
+  },
+  "server_timing_missing": 0,
+  "bench": {
+    "language": "Python",
+    "runtime": "python",
+    "framework": "FastAPI 0.143.0 + uvicorn 0.54.0 (asyncio loop, h11)",
+    "db": "postgres",
+    "db_driver": "asyncpg 0.32.0",
+    "db_pool": "asyncpg pool min 10 / max 10",
+    "workers": 1,
+    "change": "asyncpg pool (max 10) instead of a new connection per request; parent v01"
+  },
+  "server_env": {
+    "app": "python-fastapi",
+    "kernel": "6.8.0-142-generic",
+    "os": "Ubuntu 24.04.5 LTS",
+    "nproc": "1",
+    "mem_total_mb": "961",
+    "node": "v24.21.0",
+    "bun": "1.4.2",
+    "python": "3.12.3",
+    "go": "",
+    "postgres": "16.15",
+    "proxy": "none",
+    "swap_mb": "0",
+    "shared_buffers": "128MB",
+    "max_connections": "100",
+    "mem_avail_mb_idle": "599",
+    "cpu_probe_before_ms": "122.7",
+    "cpu_probe_after_ms": "91.1"
+  },
+  "outside_ms": {
+    "med": 9.993763000000001,
+    "p(95)": 19.558155999999656
+  },
+  "server": {
+    "app_pss_mb_peak": 71.0,
+    "pg_pss_mb_peak": 112.0,
+    "mem_used_mb_peak": 463.0,
+    "mem_avail_mb_min": 498.0,
+    "swap_used_mb_peak": 0.0,
+    "cpu_total_pct_avg_steady": 94.25499999999998,
+    "cpu_steal_pct_avg_steady": 0.16666666666666666,
+    "app_cpu_pct_avg_steady": 63.63333333333334,
+    "pg_cpu_pct_avg_steady": 26.02833333333334,
+    "app_conns_peak": 600.0,
+    "load1_peak": 1.09,
+    "proxy_cpu_pct_avg_steady": 0.0,
+    "proxy_pss_mb_peak": 0.0
+  },
+  "loadgen_stats": {
+    "lg_cpu_pct_avg_steady": 13.32333333333334,
+    "lg_cpu_pct_peak": 60.0,
+    "k6_rss_mb_peak": 350.0,
+    "lg_mem_used_mb_peak": 741.0
+  },
+  "cpu_ms_per_req_steady": 3.070695553021664,
+  "cpu_probe_ms": {
+    "before": "122.7",
+    "after": "91.1"
+  },
+  "pass": true,
+  "fail_reasons": [],
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  }
+}

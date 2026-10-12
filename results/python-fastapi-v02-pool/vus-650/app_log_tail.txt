@@ -1,0 +1,13 @@
+Oct 12 18:13:39 1gb-test systemd[1]: Stopping bench-app.service - Benchmark app (python-fastapi)...
+Oct 12 18:13:40 1gb-test start.sh[131259]: INFO:     Shutting down
+Oct 12 18:13:40 1gb-test start.sh[131259]: INFO:     Waiting for application shutdown.
+Oct 12 18:13:40 1gb-test start.sh[131259]: INFO:     Application shutdown complete.
+Oct 12 18:13:40 1gb-test start.sh[131259]: INFO:     Finished server process [131259]
+Oct 12 18:13:40 1gb-test systemd[1]: bench-app.service: Deactivated successfully.
+Oct 12 18:13:40 1gb-test systemd[1]: Stopped bench-app.service - Benchmark app (python-fastapi).
+Oct 12 18:13:40 1gb-test systemd[1]: bench-app.service: Consumed 1min 2.721s CPU time, 57.9M memory peak, 0B memory swap peak.
+Oct 12 18:13:43 1gb-test systemd[1]: Started bench-app.service - Benchmark app (python-fastapi).
+Oct 12 18:13:44 1gb-test start.sh[131752]: INFO:     Started server process [131752]
+Oct 12 18:13:44 1gb-test start.sh[131752]: INFO:     Waiting for application startup.
+Oct 12 18:13:44 1gb-test start.sh[131752]: INFO:     Application startup complete.
+Oct 12 18:13:44 1gb-test start.sh[131752]: INFO:     Uvicorn running on http://0.0.0.0:3000 (Press CTRL+C to quit)

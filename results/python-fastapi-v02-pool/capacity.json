@@ -1,0 +1,69 @@
+{
+  "tag": "python-fastapi-v02-pool",
+  "criteria": {
+    "p50": 500.0,
+    "p95": 800.0,
+    "p99": 1000.0,
+    "error_pct": 1.0
+  },
+  "capacity_vus": 600,
+  "first_fail_vus": 650,
+  "levels_tested": [
+    {
+      "vus": 400,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "vus": 450,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "vus": 500,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "vus": 600,
+      "pass": true,
+      "fail_reasons": []
+    },
+    {
+      "vus": 650,
+      "pass": false,
+      "fail_reasons": [
+        "p95 1153>=800ms",
+        "p99 2016>=1000ms"
+      ]
+    }
+  ],
+  "at_capacity": {
+    "steady_rps": 306.95,
+    "steady_rpm": 18417.0,
+    "steady_latency_ms": {
+      "avg": 105.51703930352389,
+      "med": 42.593763,
+      "p(90)": 293.90323240000004,
+      "p(95)": 434.6181560000002,
+      "p(99)": 862.5907952400004,
+      "max": 2715.33995
+    },
+    "error_rate_pct": 0,
+    "server": {
+      "app_pss_mb_peak": 71.0,
+      "pg_pss_mb_peak": 112.0,
+      "mem_used_mb_peak": 463.0,
+      "mem_avail_mb_min": 498.0,
+      "swap_used_mb_peak": 0.0,
+      "cpu_total_pct_avg_steady": 94.25499999999998,
+      "cpu_steal_pct_avg_steady": 0.16666666666666666,
+      "app_cpu_pct_avg_steady": 63.63333333333334,
+      "pg_cpu_pct_avg_steady": 26.02833333333334,
+      "app_conns_peak": 600.0,
+      "load1_peak": 1.09,
+      "proxy_cpu_pct_avg_steady": 0.0,
+      "proxy_pss_mb_peak": 0.0
+    }
+  }
+}
